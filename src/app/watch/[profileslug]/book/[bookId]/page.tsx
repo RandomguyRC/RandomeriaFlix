@@ -72,7 +72,7 @@ export default function BookReaderPage() {
   }
 
   return (
-    <div className="px-6 py-8 sm:px-12">
+    <div className="px-4 py-6 sm:px-12 sm:py-8">
       {/* Back link */}
       <Link
         href={`/watch/${profileSlug}/book`}
@@ -83,7 +83,7 @@ export default function BookReaderPage() {
 
       {/* Book header */}
       <div className="mb-8 text-center">
-        <h1 className="mb-2 text-3xl font-bold text-white">{book.title}</h1>
+        <h1 className="mb-2 text-2xl font-bold text-white sm:text-3xl">{book.title}</h1>
         {book.description && (
           <p className="mb-2 max-w-2xl mx-auto text-gray-300">{book.description}</p>
         )}
