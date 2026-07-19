@@ -1,0 +1,271 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Profile {
+  id            String        @id @default(cuid())
+  slug          String        @unique
+  name          String
+  avatarAssetId String?
+  avatarAsset   MediaAsset?   @relation("ProfileAvatar", fields: [avatarAssetId], references: [id], onDelete: SetNull)
+  theme         String?
+  sortOrder     Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  contentItems  ContentItem[]
+  categories    Category[]
+  storyEvents   StoryEvent[]
+  chatImports   ChatImport[]
+  books         Book[]
+  textMemories  TextMemory[]
+  stickers      Sticker[]
+}
+
+model SiteSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model SpotifyConfig {
+  id            String   @id @default("singleton")
+  accessToken   String?
+  refreshToken  String?
+  expiresAt     DateTime?
+  accountName   String?
+  isConnected   Boolean  @default(false)
+  updatedAt     DateTime @updatedAt
+}
+
+model NavTab {
+  id        String    @id @default(cuid())
+  slug      String    @unique
+  label     String
+  kind      String    @default("COLLECTION")
+  sortOrder Int       @default(0)
+  isEnabled Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  categories Category[]
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  profileId String
+  profile   Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  navTabId  String?
+  navTab    NavTab?   @relation(fields: [navTabId], references: [id], onDelete: SetNull)
+  slug      String
+  title     String
+  sortOrder Int       @default(0)
+  isEnabled Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  placements ContentPlacement[]
+
+  @@unique([profileId, slug])
+}
+
+model ContentItem {
+  id               String       @id @default(cuid())
+  profileId        String
+  profile          Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  type             String       @default("PHOTO")
+  title            String
+  description      String?
+  dateLabel        String?
+  tags             String?
+  mood             String?
+  isFeatured       Boolean      @default(false)
+  isPublished      Boolean      @default(true)
+  isReel           Boolean      @default(false)
+  sortOrder        Int          @default(0)
+  detailCropX      Float?       @default(50)
+  detailCropY      Float?       @default(50)
+  thumbCropX       Float?       @default(50)
+  thumbCropY       Float?       @default(50)
+  aspectMode       String       @default("auto")
+  detailZoom       Float?       @default(1)
+  videoRotation    Int          @default(0)
+  mainAssetId      String
+  mainAsset        MediaAsset   @relation("ContentMain", fields: [mainAssetId], references: [id])
+  thumbnailAssetId String?
+  thumbnailAsset   MediaAsset?  @relation("ContentThumb", fields: [thumbnailAssetId], references: [id], onDelete: SetNull)
+  musicAssetId     String?
+  musicAsset       MediaAsset?  @relation("ContentMusic", fields: [musicAssetId], references: [id], onDelete: SetNull)
+  musicStartMs     Int          @default(0)
+  musicDurationMs  Int          @default(15000)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  placements       ContentPlacement[]
+  reelLikes        ReelLike[]
+  reelComments     ReelComment[]
+}
+
+model ContentPlacement {
+  id            String      @id @default(cuid())
+  contentItemId String
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  categoryId    String
+  category      Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  sortOrder     Int         @default(0)
+
+  @@unique([contentItemId, categoryId])
+  @@index([categoryId, sortOrder])
+}
+
+model StoryEvent {
+  id        String      @id @default(cuid())
+  profileId String
+  profile   Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title     String
+  subtitle  String?
+  eventDate String?
+  body      String?
+  mood      String?
+  sortOrder Int         @default(0)
+  assetId        String?
+  asset          MediaAsset? @relation("StoryAsset", fields: [assetId], references: [id], onDelete: SetNull)
+  imageCropX     Float?      @default(50)
+  imageCropY     Float?      @default(50)
+  spotifyTrackId String?
+  spotifyUri     String?
+  spotifyTitle   String?
+  spotifyArtist  String?
+  spotifyAlbumArt String?
+  spotifyDuration Int?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model ReelLike {
+  id        String   @id @default(cuid())
+  contentId String
+  content   ContentItem @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  sessionId String
+  createdAt DateTime @default(now())
+
+  @@unique([contentId, sessionId])
+}
+
+model ReelComment {
+  id        String   @id @default(cuid())
+  contentId String
+  content   ContentItem @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  author    String
+  text      String
+  createdAt DateTime @default(now())
+}
+
+model Sticker {
+  id        String   @id @default(cuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title     String   @default("")
+  assetId   String
+  asset     MediaAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model TextMemory {
+  id        String   @id @default(cuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title     String   @default("")
+  paragraph String
+  owner     String   @default("random")
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ChatImport {
+  id            String        @id @default(cuid())
+  profileId     String
+  profile       Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title         String
+  myNames       String
+  friendNames   String?
+  sourceAssetId String?
+  sourceAsset   MediaAsset?   @relation("ChatSource", fields: [sourceAssetId], references: [id], onDelete: SetNull)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  messages      ChatMessage[]
+}
+
+model ChatMessage {
+  id          String           @id @default(cuid())
+  importId    String
+  import      ChatImport       @relation(fields: [importId], references: [id], onDelete: Cascade)
+  sortOrder   Int
+  timestamp   DateTime?
+  dateLabel   String?
+  rawSender   String?
+  isMine      Boolean          @default(false)
+  body        String?
+  systemEvent Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  attachments ChatAttachment[]
+
+  @@index([importId, sortOrder])
+}
+
+model ChatAttachment {
+  id          String       @id @default(cuid())
+  messageId   String
+  message     ChatMessage  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  assetId     String?
+  asset       MediaAsset?  @relation("ChatAttachmentAsset", fields: [assetId], references: [id], onDelete: SetNull)
+  originalRef String?
+  kind        String       @default("OTHER")
+}
+
+model Book {
+  id           String      @id @default(cuid())
+  profileId    String
+  profile      Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  dateLabel    String?
+  isFeatured   Boolean     @default(false)
+  pdfAssetId   String
+  pdfAsset     MediaAsset  @relation("BookPdf", fields: [pdfAssetId], references: [id])
+  coverAssetId String?
+  coverAsset   MediaAsset? @relation("BookCover", fields: [coverAssetId], references: [id], onDelete: SetNull)
+  sortOrder    Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model MediaAsset {
+  id           String      @id @default(cuid())
+  kind         String      @default("OTHER")
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  storagePath  String      @unique
+  createdAt    DateTime    @default(now())
+
+  profileAvatars Profile[]        @relation("ProfileAvatar")
+  contentMain    ContentItem[]    @relation("ContentMain")
+  contentThumb   ContentItem[]    @relation("ContentThumb")
+  contentMusic   ContentItem[]    @relation("ContentMusic")
+  storyEvents    StoryEvent[]     @relation("StoryAsset")
+  chatSources    ChatImport[]     @relation("ChatSource")
+  chatAttachments ChatAttachment[] @relation("ChatAttachmentAsset")
+  bookPdfs       Book[]           @relation("BookPdf")
+  bookCovers     Book[]           @relation("BookCover")
+  stickers       Sticker[]
+}
