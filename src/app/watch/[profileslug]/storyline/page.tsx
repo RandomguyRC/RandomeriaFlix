@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { Loader2, Play, Pause, Volume2, VolumeX, X, HelpCircle, AlertTriangle } from "lucide-react";
 import CelebrationOverlay, { CelebrationVariant } from "@/components/storyline/CelebrationOverlay";
+import HoursImpactPanel, { HoursEntry } from "@/components/storyline/HoursImpactPanel";
 
 interface StoryEvent {
   id: string;
@@ -58,6 +59,7 @@ export default function StorylinePage() {
     question: string;
     answers: string[];
     emptyProfileSlug: string;
+    hoursLog: HoursEntry[];
   } | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
   const chapterRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -149,10 +151,16 @@ export default function StorylinePage() {
           .map((a: string | undefined) => (a || "").trim())
           .filter(Boolean);
         if (answers.length > 0) {
+          let hoursLog: HoursEntry[] = [];
+          try {
+            const parsed = JSON.parse(data.storylineHoursLog || "[]");
+            if (Array.isArray(parsed)) hoursLog = parsed;
+          } catch {}
           setEndingQuestion({
             question,
             answers,
             emptyProfileSlug: (data.storylineEmptyProfileSlug || "").trim(),
+            hoursLog,
           });
         }
       } catch {}
@@ -303,6 +311,7 @@ export default function StorylinePage() {
             question={endingQuestion.question}
             answers={endingQuestion.answers}
             emptyProfileSlug={endingQuestion.emptyProfileSlug}
+            hoursLog={endingQuestion.hoursLog}
           />
         ) : (
           <div className="flex min-h-[60vh] items-center justify-center px-6">
@@ -439,10 +448,12 @@ function EndingQuestion({
   question,
   answers,
   emptyProfileSlug,
+  hoursLog,
 }: {
   question: string;
   answers: string[];
   emptyProfileSlug: string;
+  hoursLog: HoursEntry[];
 }) {
   const [open, setOpen] = useState(false);
   const [celebration, setCelebration] = useState<CelebrationVariant | null>(null);
@@ -481,6 +492,7 @@ function EndingQuestion({
             question={question}
             answers={answers}
             emptyProfileSlug={emptyProfileSlug}
+            hoursLog={hoursLog}
             onClose={() => setOpen(false)}
             onCelebrate={(variant) => setCelebration(variant)}
           />
@@ -500,12 +512,14 @@ function AnswerDialog({
   question,
   answers,
   emptyProfileSlug,
+  hoursLog,
   onClose,
   onCelebrate,
 }: {
   question: string;
   answers: string[];
   emptyProfileSlug: string;
+  hoursLog: HoursEntry[];
   onClose: () => void;
   onCelebrate: (variant: CelebrationVariant) => void;
 }) {
@@ -572,7 +586,9 @@ function AnswerDialog({
         exit={{ opacity: 0, scale: 0.96, y: 8 }}
         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0b0e14] p-6 shadow-[0_0_60px_rgba(0,0,0,0.6)] sm:p-7"
+        className={`relative flex w-full max-h-[88vh] flex-col overflow-y-auto rounded-2xl border border-white/10 bg-[#0b0e14] p-6 shadow-[0_0_60px_rgba(0,0,0,0.6)] transition-[max-width] duration-300 sm:p-7 ${
+          view === "confirmClear" ? "max-w-md" : "max-w-sm"
+        }`}
       >
         {view !== "clearing" && (
           <button
@@ -649,6 +665,9 @@ function AnswerDialog({
                 Are you sure? This means all your memories, including your Random Guy, will be
                 deleted from this Universe.
               </p>
+
+              <HoursImpactPanel entries={hoursLog} />
+
               <div className="mt-6 flex flex-col gap-2.5">
                 <button
                   onClick={handleConfirmClear}

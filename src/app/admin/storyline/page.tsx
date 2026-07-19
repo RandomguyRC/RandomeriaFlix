@@ -3,9 +3,33 @@
 import { useState, useEffect } from "react";
 import {
   Plus, Trash2, Pencil, Loader2, X, Check, GripVertical, ChevronDown, ChevronUp, Upload, Image as ImageIcon, Crop,
-  MessageCircleHeart, Save,
+  MessageCircleHeart, Save, Clock,
 } from "lucide-react";
 import ImagePositionPicker from "@/components/ui/ImagePositionPicker";
+
+interface HoursEntry {
+  id: string;
+  date: string; // YYYY-MM-DD
+  from: string; // HH:mm
+  to: string; // HH:mm
+  label?: string;
+}
+
+function entryHoursDecimal(e: HoursEntry): number {
+  const [fh, fm] = e.from.split(":").map((n) => parseInt(n, 10));
+  const [th, tm] = e.to.split(":").map((n) => parseInt(n, 10));
+  if ([fh, fm, th, tm].some((n) => Number.isNaN(n))) return 0;
+  let from = fh * 60 + fm;
+  let to = th * 60 + tm;
+  if (to <= from) to += 24 * 60;
+  return (to - from) / 60;
+}
+
+function fmtHoursShort(h: number): string {
+  const whole = Math.floor(h);
+  const mins = Math.round((h - whole) * 60);
+  return mins === 0 ? `${whole}h` : `${whole}h ${mins}m`;
+}
 
 interface StoryEvent {
   id: string;
@@ -83,6 +107,15 @@ export default function AdminStorylinePage() {
   const [endingSaving, setEndingSaving] = useState(false);
   const [endingSaved, setEndingSaved] = useState(false);
 
+  // Hours worked tracker — shown to the viewer inside the "confirm clear"
+  // step, alongside the ending question, as a nudge before she confirms.
+  const [hoursLog, setHoursLog] = useState<HoursEntry[]>([]);
+  const [hoursSaving, setHoursSaving] = useState(false);
+  const [newHoursDate, setNewHoursDate] = useState("");
+  const [newHoursFrom, setNewHoursFrom] = useState("");
+  const [newHoursTo, setNewHoursTo] = useState("");
+  const [newHoursLabel, setNewHoursLabel] = useState("");
+
   useEffect(() => { fetchEvents(); fetchProfiles(); fetchEndingQuestion(); }, []);
 
   async function fetchEndingQuestion() {
@@ -95,9 +128,48 @@ export default function AdminStorylinePage() {
         setEndingAnswer2(data.storylineAnswer2 || "");
         setEndingAnswer3(data.storylineAnswer3 || "");
         setEndingEmptyProfileSlug(data.storylineEmptyProfileSlug || "");
+        try {
+          const parsed = JSON.parse(data.storylineHoursLog || "[]");
+          if (Array.isArray(parsed)) setHoursLog(parsed);
+        } catch {}
       }
     } catch {}
     setEndingLoading(false);
+  }
+
+  async function persistHoursLog(next: HoursEntry[]) {
+    setHoursLog(next);
+    setHoursSaving(true);
+    try {
+      await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storylineHoursLog: JSON.stringify(next) }),
+      });
+    } finally {
+      setHoursSaving(false);
+    }
+  }
+
+  function addHoursEntry() {
+    if (!newHoursDate || !newHoursFrom || !newHoursTo) return;
+    const entry: HoursEntry = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      date: newHoursDate,
+      from: newHoursFrom,
+      to: newHoursTo,
+      label: newHoursLabel.trim() || undefined,
+    };
+    const next = [...hoursLog, entry].sort((a, b) => a.date.localeCompare(b.date));
+    persistHoursLog(next);
+    setNewHoursDate("");
+    setNewHoursFrom("");
+    setNewHoursTo("");
+    setNewHoursLabel("");
+  }
+
+  function removeHoursEntry(id: string) {
+    persistHoursLog(hoursLog.filter((e) => e.id !== id));
   }
 
   async function saveEndingQuestion() {
@@ -670,6 +742,112 @@ export default function AdminStorylinePage() {
               )}
               {endingSaving ? "Saving..." : endingSaved ? "Saved!" : "Save"}
             </button>
+          </div>
+        )}
+      </div>
+
+      {/* Hours Worked */}
+      <div className="mt-10 rounded-xl border border-gray-800 bg-gray-900 p-6">
+        <div className="mb-2 flex items-center gap-3">
+          <Clock className="h-5 w-5 text-red-400" />
+          <h2 className="text-lg font-semibold text-white">Hours Worked</h2>
+          {hoursSaving && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-500" />}
+        </div>
+        <p className="mb-5 text-sm text-gray-400">
+          Log the time you've put into this project, day by day. It's shown to her as a little
+          "before you decide" tracker inside the confirmation step of Answer 3 — a quiet reminder
+          of the effort behind it. Changes save automatically.
+        </p>
+
+        <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <input
+            type="date"
+            value={newHoursDate}
+            onChange={(e) => setNewHoursDate(e.target.value)}
+            className="col-span-2 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white focus:border-red-500 focus:outline-none sm:col-span-1"
+          />
+          <input
+            type="time"
+            value={newHoursFrom}
+            onChange={(e) => setNewHoursFrom(e.target.value)}
+            className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white focus:border-red-500 focus:outline-none"
+          />
+          <input
+            type="time"
+            value={newHoursTo}
+            onChange={(e) => setNewHoursTo(e.target.value)}
+            className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white focus:border-red-500 focus:outline-none"
+          />
+          <input
+            type="text"
+            value={newHoursLabel}
+            onChange={(e) => setNewHoursLabel(e.target.value)}
+            placeholder="Note (optional)"
+            className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white focus:border-red-500 focus:outline-none"
+          />
+          <button
+            onClick={addHoursEntry}
+            disabled={!newHoursDate || !newHoursFrom || !newHoursTo}
+            className="flex items-center justify-center gap-1.5 rounded-lg bg-red-600 px-3 py-2.5 text-sm font-semibold text-white transition-all hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Plus className="h-4 w-4" />
+            Add
+          </button>
+        </div>
+
+        {hoursLog.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-gray-700 px-4 py-6 text-center text-sm text-gray-500">
+            No entries yet — add your first work session above.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-gray-800">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-800 bg-gray-800/50 text-left text-xs uppercase tracking-wide text-gray-500">
+                  <th className="px-3 py-2 font-medium">Date</th>
+                  <th className="px-3 py-2 font-medium">From</th>
+                  <th className="px-3 py-2 font-medium">To</th>
+                  <th className="px-3 py-2 font-medium">Duration</th>
+                  <th className="px-3 py-2 font-medium">Note</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {hoursLog
+                  .slice()
+                  .sort((a, b) => a.date.localeCompare(b.date) || a.from.localeCompare(b.from))
+                  .map((e) => (
+                    <tr key={e.id} className="border-b border-gray-800 last:border-0">
+                      <td className="px-3 py-2 text-gray-300">{e.date}</td>
+                      <td className="px-3 py-2 text-gray-400">{e.from}</td>
+                      <td className="px-3 py-2 text-gray-400">{e.to}</td>
+                      <td className="px-3 py-2 text-gray-200">{fmtHoursShort(entryHoursDecimal(e))}</td>
+                      <td className="px-3 py-2 text-gray-500">{e.label || "—"}</td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          onClick={() => removeHoursEntry(e.id)}
+                          aria-label="Remove entry"
+                          className="rounded p-1 text-gray-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-gray-800/40">
+                  <td colSpan={3} className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Total
+                  </td>
+                  <td colSpan={3} className="px-3 py-2 font-semibold text-red-300">
+                    {fmtHoursShort(hoursLog.reduce((s, e) => s + entryHoursDecimal(e), 0))} across{" "}
+                    {new Set(hoursLog.map((e) => e.date)).size} day
+                    {new Set(hoursLog.map((e) => e.date)).size === 1 ? "" : "s"}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         )}
       </div>
