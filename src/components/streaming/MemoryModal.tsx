@@ -378,10 +378,10 @@ export default function MemoryModal({ item, items = [], onClose, onNavigate }: M
 
               {/* Details */}
               <div
-                className="modal-details flex-1 overflow-y-auto p-6"
+                className="modal-details flex-1 overflow-y-auto p-4 sm:p-6"
                 style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
               >
-                <h2 className="text-2xl font-bold text-white">{item.title}</h2>
+                <h2 className="text-lg font-bold text-white sm:text-2xl">{item.title}</h2>
 
                 <div className="mt-3 flex flex-wrap gap-3">
                   {item.dateLabel && (

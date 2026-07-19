@@ -159,12 +159,12 @@ export default function ChatPageComponent() {
 
       {/* Header */}
       <div className="sticky top-14 z-10 relative border-b border-white/[0.06] bg-[#1f2937]/80 backdrop-blur-xl">
-        <div className="flex items-center gap-4 px-6 py-4">
-          <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-pink-500 to-rose-600 ring-2 ring-white/10">
+        <div className="flex items-center gap-2 px-3 py-3 sm:gap-4 sm:px-6 sm:py-4">
+          <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-pink-500 to-rose-600 ring-2 ring-white/10 sm:h-10 sm:w-10">
             <span className="flex h-full w-full items-center justify-center text-sm font-bold text-white">C</span>
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-base font-semibold text-white">Cherry 🍒</h2>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-sm font-semibold text-white sm:text-base">Cherry 🍒</h2>
             <p className="text-xs text-gray-400">Online</p>
           </div>
           <SearchBar
