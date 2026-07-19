@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { prisma } from "@/lib/db";
 import TopNav from "@/components/layout/TopNav";
 import SpotifyPlayerShell from "@/components/storyline/SpotifyPlayerShell";
+import LiveChatNotifier from "@/components/livechat/LiveChatNotifier";
 
 interface NavTab {
   slug: string;
@@ -33,6 +34,11 @@ export default async function WatchLayout({
       <TopNav profileSlug={profileslug} initialTabs={serverTabs} />
       <div className="pt-14">{children}</div>
       <SpotifyPlayerShell />
+      <LiveChatNotifier
+        role="viewer"
+        chatHref={`/watch/${profileslug}/livechat`}
+        partnerLabel="Random"
+      />
     </div>
   );
 }
