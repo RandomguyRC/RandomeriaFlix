@@ -67,7 +67,7 @@ export default async function AdminDashboard() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white">Dashboard</h1>
+        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
         <p className="mt-2 text-gray-400">
           Manage your RandomeriaFlix content
         </p>
@@ -87,7 +87,7 @@ export default async function AdminDashboard() {
                   <p className="text-sm font-medium text-gray-400">
                     {stat.label}
                   </p>
-                  <p className="mt-2 text-2xl sm:text-3xl font-bold text-white">
+                  <p className="mt-2 text-3xl font-bold text-white">
                     {stat.count}
                   </p>
                 </div>

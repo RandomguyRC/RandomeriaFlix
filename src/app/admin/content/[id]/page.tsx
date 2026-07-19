@@ -166,7 +166,7 @@ export default function EditContentPage({ params }: { params: Promise<{ id: stri
       <Link href="/admin/content" className="mb-6 inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white">
         <ArrowLeft className="h-4 w-4" /> Back to Content
       </Link>
-      <h1 className="mb-8 text-2xl sm:text-3xl font-bold text-white">Edit Content</h1>
+      <h1 className="mb-8 text-3xl font-bold text-white">Edit Content</h1>
 
       {/* Audio Trimmer */}
       {trimmerOpen && musicFile && (

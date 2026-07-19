@@ -170,20 +170,20 @@ export default function CategoriesPage() {
 
   return (
     <div>
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">Categories</h1>
+          <h1 className="text-3xl font-bold text-white">Categories</h1>
           <p className="mt-2 text-gray-400">Manage content rows for each profile</p>
         </div>
         <button onClick={() => openAddForm("")}
-          className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-red-700">
+          className="flex items-center gap-2 rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-red-700">
           <Plus className="h-5 w-5" /> Add Category
         </button>
       </div>
 
       {showForm && (
         <div className="mb-6 rounded-xl border border-gray-700 bg-gray-900 p-6">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">{editingCat ? "Edit Category" : "Add Category"}</h2>
             <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-white"><X className="h-5 w-5" /></button>
           </div>
@@ -214,7 +214,7 @@ export default function CategoriesPage() {
         <div className="space-y-6">
           {grouped.map(({ profile, categories: cats }) => (
             <div key={profile.id} className="rounded-xl border border-gray-800 bg-gray-900/50 p-6">
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`flex h-10 w-10 items-center justify-center rounded-lg text-sm font-bold text-white ${
                     profile.slug === "randomeria" ? "bg-red-600" : "bg-violet-600"

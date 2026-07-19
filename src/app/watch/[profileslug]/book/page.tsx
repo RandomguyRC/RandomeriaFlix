@@ -54,12 +54,12 @@ export default function BookPage() {
   const otherBooks = books.filter((b) => !b.isFeatured);
 
   return (
-    <div className="px-4 py-6 sm:px-12 sm:py-8">
+    <div className="px-6 py-8 sm:px-12">
       {/* Featured Book */}
       {featuredBook && (
         <Link
           href={`/watch/${profileSlug}/book/${featuredBook.id}`}
-          className="mb-8 block cursor-pointer rounded-2xl border border-red-500/20 bg-gradient-to-br from-red-950/20 via-gray-900 to-gray-900 p-5 shadow-2xl transition-all hover:border-red-500/40 hover:shadow-red-500/10 sm:p-8"
+          className="mb-8 block cursor-pointer rounded-2xl border border-red-500/20 bg-gradient-to-br from-red-950/20 via-gray-900 to-gray-900 p-8 shadow-2xl transition-all hover:border-red-500/40 hover:shadow-red-500/10"
         >
           <div className="mb-3 flex items-center gap-2 text-red-400">
             <Star className="h-4 w-4 fill-red-400" />

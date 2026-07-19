@@ -32,7 +32,7 @@ export default function AdminProfilesPage() {
 
   return (
     <div>
-      <h1 className="mb-8 text-2xl sm:text-3xl font-bold text-white">Profiles</h1>
+      <h1 className="mb-8 text-3xl font-bold text-white">Profiles</h1>
 
       <div className="grid gap-6 sm:grid-cols-2">
         {profiles.map((profile) => (

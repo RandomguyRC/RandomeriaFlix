@@ -35,7 +35,7 @@ export default function HeroBanner({ items, profileName, interval = 10000 }: Her
   const item = items.length > 0 ? items[currentIndex] : null;
 
   return (
-    <div className="relative h-[60vh] min-h-[380px] w-full overflow-hidden sm:h-[70vh] sm:min-h-[500px]">
+    <div className="relative h-[70vh] min-h-[500px] w-full overflow-hidden">
       {/* Slideshow */}
       <AnimatePresence mode="popLayout">
         {items.length > 0 ? (
@@ -98,7 +98,7 @@ export default function HeroBanner({ items, profileName, interval = 10000 }: Her
 
       {/* Text content */}
       <div className="absolute inset-0 flex items-end">
-        <div className="w-full px-4 pb-14 sm:px-12 sm:pb-24 lg:px-20">
+        <div className="w-full px-6 pb-24 sm:px-12 lg:px-20">
           <AnimatePresence mode="wait">
             {item && (
               <motion.div
@@ -112,12 +112,12 @@ export default function HeroBanner({ items, profileName, interval = 10000 }: Her
                   {profileName}&apos;s memories
                 </p>
 
-                <h1 className="mb-3 max-w-3xl text-3xl font-black text-white drop-shadow-lg sm:mb-4 sm:text-4xl md:text-6xl">
+                <h1 className="mb-4 max-w-3xl text-4xl font-black text-white drop-shadow-lg sm:text-6xl">
                   {item.title}
                 </h1>
 
                 {item.description && (
-                  <p className="mb-4 max-w-2xl text-sm text-gray-300 line-clamp-2 sm:text-lg">
+                  <p className="mb-4 max-w-2xl text-lg text-gray-300 line-clamp-2">
                     {item.description}
                   </p>
                 )}
@@ -133,13 +133,13 @@ export default function HeroBanner({ items, profileName, interval = 10000 }: Her
 
       {/* Slideshow dots */}
       {items.length > 1 && (
-        <div className="absolute bottom-4 right-4 flex gap-1.5 sm:bottom-8 sm:right-8 sm:gap-2">
+        <div className="absolute bottom-8 right-8 flex gap-2">
           {items.map((_, i) => (
             <button
               key={i}
               onClick={() => setCurrentIndex(i)}
-              className={`h-1.5 rounded-full transition-all duration-300 sm:h-2 ${
-                i === currentIndex ? "w-5 bg-red-500 sm:w-6" : "w-1.5 bg-white/40 hover:bg-white/60 sm:w-2"
+              className={`h-2 rounded-full transition-all duration-300 ${
+                i === currentIndex ? "w-6 bg-red-500" : "w-2 bg-white/40 hover:bg-white/60"
               }`}
             />
           ))}

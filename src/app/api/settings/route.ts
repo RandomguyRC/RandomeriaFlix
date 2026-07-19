@@ -12,7 +12,6 @@ const PUBLIC_KEYS = [
   "storylineAnswer2",
   "storylineAnswer3",
   "storylineEmptyProfileSlug",
-  "storylineHoursLog",
 ];
 
 export async function GET() {

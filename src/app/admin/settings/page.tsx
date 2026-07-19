@@ -184,7 +184,7 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white">Settings</h1>
+        <h1 className="text-3xl font-bold text-white">Settings</h1>
         <p className="mt-2 text-gray-400">Configure your RandomeriaFlix site</p>
       </div>
 
@@ -283,7 +283,7 @@ export default function SettingsPage() {
                 <span className="text-sm text-gray-400">— {spotifyAccount}</span>
               )}
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex gap-3">
               <button onClick={connectSpotify} disabled={connectingSpotify}
                 className="flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-700 hover:text-white disabled:opacity-50">
                 <Link className="h-4 w-4" /> Reconnect

@@ -71,10 +71,10 @@ export default function StickersPage() {
   }
 
   return (
-    <div className="px-4 py-6 sm:px-6 sm:py-8">
-      <h1 className="mb-6 text-xl font-bold text-white sm:text-2xl">Stickers</h1>
+    <div className="px-6 py-8">
+      <h1 className="mb-6 text-2xl font-bold text-white">Stickers</h1>
 
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 sm:gap-4 md:grid-cols-6">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
         {stickers.map((sticker, i) => (
           <motion.div
             key={sticker.id}
@@ -115,7 +115,7 @@ export default function StickersPage() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.5, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="relative max-h-[80vh] w-[85vw] max-w-lg"
+              className="relative max-w-lg max-h-[80vh]"
               onClick={(e) => e.stopPropagation()}
             >
               <button onClick={() => setSelectedIndex(null)}

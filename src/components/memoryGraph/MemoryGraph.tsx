@@ -180,7 +180,7 @@ export default function MemoryGraph({ memories, randomDescription = "", cherryDe
   const [isPanning, setIsPanning] = useState(false);
 
   const handlePanStart = useCallback(
-    (e: React.PointerEvent) => {
+    (e: React.MouseEvent) => {
       if (e.target === containerRef.current || (e.target as HTMLElement).tagName === "svg") {
         setIsPanning(true);
         panRef.current = {
@@ -195,7 +195,7 @@ export default function MemoryGraph({ memories, randomDescription = "", cherryDe
   );
 
   const handlePanMove = useCallback(
-    (e: React.PointerEvent) => {
+    (e: React.MouseEvent) => {
       if (!isPanning) return;
       setPan({
         x: panRef.current.startPanX + (e.clientX - panRef.current.startX),
@@ -215,14 +215,14 @@ export default function MemoryGraph({ memories, randomDescription = "", cherryDe
   return (
     <div className="relative h-full w-full overflow-hidden rounded-xl" style={{ background: "radial-gradient(ellipse at center, #0d1117 0%, #010409 70%, #000000 100%)" }}>
       {/* Controls */}
-      <div className="absolute top-2 right-2 z-10 flex flex-wrap items-center justify-end gap-1.5 sm:top-4 sm:right-4 sm:gap-2">
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
         {/* Filter */}
-        <div className="flex rounded-lg border border-gray-800 bg-gray-900/80 backdrop-blur-sm">
+        <div className="flex rounded-lg bg-gray-900/80 backdrop-blur-sm border border-gray-800">
           {(["all", "random", "cherry"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-2 py-1 text-[11px] font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-xs ${
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                 filter === f
                   ? f === "random"
                     ? "bg-red-600 text-white"
@@ -239,26 +239,26 @@ export default function MemoryGraph({ memories, randomDescription = "", cherryDe
 
         <button
           onClick={() => setZoom((z) => Math.min(3, z + 0.2))}
-          className="rounded-lg border border-gray-800 bg-gray-900/80 p-1.5 text-gray-400 backdrop-blur-sm hover:text-white sm:p-2"
+          className="rounded-lg bg-gray-900/80 p-2 text-gray-400 backdrop-blur-sm border border-gray-800 hover:text-white"
         >
-          <ZoomIn className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <ZoomIn className="h-4 w-4" />
         </button>
         <button
           onClick={() => setZoom((z) => Math.max(0.3, z - 0.2))}
-          className="rounded-lg border border-gray-800 bg-gray-900/80 p-1.5 text-gray-400 backdrop-blur-sm hover:text-white sm:p-2"
+          className="rounded-lg bg-gray-900/80 p-2 text-gray-400 backdrop-blur-sm border border-gray-800 hover:text-white"
         >
-          <ZoomOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <ZoomOut className="h-4 w-4" />
         </button>
         <button
           onClick={resetView}
-          className="rounded-lg border border-gray-800 bg-gray-900/80 p-1.5 text-gray-400 backdrop-blur-sm hover:text-white sm:p-2"
+          className="rounded-lg bg-gray-900/80 p-2 text-gray-400 backdrop-blur-sm border border-gray-800 hover:text-white"
         >
-          <RotateCcw className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <RotateCcw className="h-4 w-4" />
         </button>
       </div>
 
       {/* Stats */}
-      <div className="absolute bottom-2 left-2 z-10 text-[10px] text-gray-500 sm:bottom-4 sm:left-4 sm:text-xs">
+      <div className="absolute bottom-4 left-4 z-10 text-xs text-gray-500">
         {memories.length} memories · zoom {Math.round(zoom * 100)}%
       </div>
 
@@ -268,11 +268,11 @@ export default function MemoryGraph({ memories, randomDescription = "", cherryDe
         width="100%"
         height="100%"
         onWheel={handleWheel}
-        onPointerDown={handlePanStart}
-        onPointerMove={handlePanMove}
-        onPointerUp={handlePanEnd}
-        onPointerLeave={handlePanEnd}
-        style={{ cursor: isPanning ? "grabbing" : "grab", touchAction: "none" }}
+        onMouseDown={handlePanStart}
+        onMouseMove={handlePanMove}
+        onMouseUp={handlePanEnd}
+        onMouseLeave={handlePanEnd}
+        style={{ cursor: isPanning ? "grabbing" : "grab" }}
       >
         <defs>
           <filter id="glow">

@@ -50,14 +50,14 @@ export default function ContentPage() {
 
   return (
     <div>
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">Content Library</h1>
+          <h1 className="text-3xl font-bold text-white">Content Library</h1>
           <p className="mt-2 text-gray-400">Manage your photos and videos</p>
         </div>
         <Link
           href="/admin/content/new"
-          className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-red-700"
+          className="flex items-center gap-2 rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-red-700"
         >
           <Plus className="h-5 w-5" />
           Add Content

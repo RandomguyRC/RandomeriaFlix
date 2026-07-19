@@ -127,9 +127,9 @@ export default function AdminStickersPage() {
 
   return (
     <div>
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">Stickers</h1>
+          <h1 className="text-3xl font-bold text-white">Stickers</h1>
           <p className="mt-2 text-gray-400">Upload stickers for each profile</p>
         </div>
         <div className="flex gap-3">
@@ -138,7 +138,7 @@ export default function AdminStickersPage() {
             <Upload className="h-5 w-5" /> Bulk Add
           </button>
           <button onClick={() => { setShowForm(!showForm); setShowBulkForm(false); }}
-            className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:bg-red-700">
+            className="flex items-center gap-2 rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:bg-red-700">
             <Plus className="h-5 w-5" /> Add Sticker
           </button>
         </div>
@@ -146,7 +146,7 @@ export default function AdminStickersPage() {
 
       {showBulkForm && (
         <div className="mb-6 rounded-xl border border-gray-700 bg-gray-900 p-6">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-white">Bulk Add Stickers</h2>
               <p className="mt-1 text-xs text-gray-500">Select all files at once — they'll be added in numeric filename order (1, 2, 3...). Titles are left blank so you can fill them in later.</p>
@@ -211,7 +211,7 @@ export default function AdminStickersPage() {
 
       {showForm && (
         <div className="mb-6 rounded-xl border border-gray-700 bg-gray-900 p-6">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">New Sticker</h2>
             <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-white"><X className="h-5 w-5" /></button>
           </div>

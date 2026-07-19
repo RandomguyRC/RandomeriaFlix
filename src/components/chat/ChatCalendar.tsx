@@ -101,7 +101,7 @@ export default function ChatCalendar({ activeDates, onSelectDate, onClose }: Cha
       exit={{ opacity: 0, y: -8, scale: 0.95 }}
       transition={{ type: "spring", damping: 20, stiffness: 250 }}
       onClick={(e) => e.stopPropagation()}
-      className="absolute right-0 top-full z-30 mt-2 w-[88vw] max-w-72 rounded-2xl border border-gray-800 bg-gray-900 p-4 shadow-2xl sm:p-5"
+      className="absolute right-0 top-full mt-2 z-30 w-72 rounded-2xl border border-gray-800 bg-gray-900 shadow-2xl p-5"
     >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
