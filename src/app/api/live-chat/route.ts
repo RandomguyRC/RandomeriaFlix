@@ -41,10 +41,20 @@ export async function GET(request: NextRequest) {
     data: { readAt: new Date() },
   });
 
+  // Let the client know how far the PARTNER has read into OUR messages, so
+  // "seen" ticks on our own sent bubbles update live even without a new
+  // message arriving (polling with `after` only returns brand-new rows).
+  const lastReadOfMine = await prisma.liveChatMessage.findFirst({
+    where: { sender: role, readAt: { not: null } },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true },
+  });
+
   return NextResponse.json({
     messages: ordered,
     role: session.role,
     partnerStatus: getStatus(otherRole),
+    readUpTo: lastReadOfMine?.createdAt ?? null,
   });
 }
 

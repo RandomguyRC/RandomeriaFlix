@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Send, Smile } from "lucide-react";
+import { Send, Smile, Check, CheckCheck } from "lucide-react";
 
 interface LiveChatMessage {
   id: string;
@@ -97,6 +97,20 @@ export default function LiveChatWindow({
       const incoming: LiveChatMessage[] = data.messages ?? [];
 
       if (data.partnerStatus) setPartnerStatus(data.partnerStatus);
+
+      // Flip "seen" ticks on our own already-loaded messages whenever the
+      // partner has read further than before — independent of whether any
+      // brand-new message arrived this poll.
+      if (data.readUpTo) {
+        const readUpTo = new Date(data.readUpTo).getTime();
+        setMessages((prev) =>
+          prev.map((m) =>
+            !m.readAt && new Date(m.createdAt).getTime() <= readUpTo
+              ? { ...m, readAt: data.readUpTo }
+              : m
+          )
+        );
+      }
 
       if (incoming.length === 0) return;
       setMessages((prev) => {
@@ -337,8 +351,15 @@ export default function LiveChatWindow({
                 <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.5]">
                   {m.content}
                 </p>
-                <p className={`mt-1 text-right text-[10px] ${mine ? "text-white/60" : "text-white/30"}`}>
+                <p className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${mine ? "text-white/60" : "text-white/30"}`}>
                   {formatTime(m.createdAt)}
+                  {mine && (
+                    m.readAt ? (
+                      <CheckCheck className="h-3.5 w-3.5 text-sky-300" />
+                    ) : (
+                      <Check className="h-3.5 w-3.5 text-white/60" />
+                    )
+                  )}
                 </p>
               </div>
             </motion.div>
