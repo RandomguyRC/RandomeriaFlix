@@ -94,7 +94,7 @@ export default function MovieRow({
         {title}
       </h2>
 
-      <div className="relative w-full">
+      <div className="relative w-full flow-root">
 
         {canGoLeft && (
           <button
@@ -104,7 +104,7 @@ export default function MovieRow({
               left-0
               -top-6
               -bottom-6
-              z-30
+              z-40
               hidden
               w-24
               opacity-0
@@ -131,7 +131,7 @@ export default function MovieRow({
               right-0
               -top-6
               -bottom-6
-              z-30
+              z-40
               hidden
               w-14
               opacity-0
@@ -152,7 +152,7 @@ export default function MovieRow({
 
         <div
           ref={viewportRef}
-          className="overflow-visible pl-4 sm:pl-8 md:pl-12"
+          className="overflow-visible pl-4 sm:pl-8 md:pl-12 md:-my-8"
         >
 
           <div
@@ -168,6 +168,7 @@ export default function MovieRow({
               pr-4
               sm:pr-8
               md:pr-12
+              md:py-8
               md:snap-none
             "
             style={{
