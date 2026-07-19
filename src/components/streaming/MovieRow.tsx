@@ -96,7 +96,7 @@ export default function MovieRow({
   return (
     <section className="group/row mb-8 sm:mb-12">
 
-      <h2 className="mb-3 pl-4 text-lg font-bold text-white sm:mb-4 sm:pl-8 sm:text-xl md:pl-12 md:text-2xl">
+      <h2 className="mb-3 pl-4 text-lg font-bold text-white sm:mb-4 sm:text-xl md:text-2xl">
         {title}
       </h2>
 
@@ -158,7 +158,7 @@ export default function MovieRow({
 
         <div
           ref={viewportRef}
-          className="overflow-visible pl-4 sm:pl-8 md:pl-12 md:-my-8"
+          className="overflow-visible pl-4 md:-my-8"
         >
 
           <div
@@ -172,8 +172,6 @@ export default function MovieRow({
               snap-x
               snap-mandatory
               pr-4
-              sm:pr-8
-              md:pr-12
               md:py-8
               md:snap-none
             "
