@@ -356,13 +356,13 @@ export default function AdminStorylinePage() {
         />
       )}
 
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Storyline</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">Storyline</h1>
           <p className="mt-2 text-gray-400">Build the timeline of your story</p>
         </div>
         <button onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-red-700">
+          className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-red-700">
           <Plus className="h-5 w-5" /> Add Event
         </button>
       </div>
@@ -370,7 +370,7 @@ export default function AdminStorylinePage() {
       {/* Add form */}
       {showForm && (
         <div className="mb-6 rounded-xl border border-gray-700 bg-gray-900 p-6">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-white">New Story Event</h2>
             <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-white"><X className="h-5 w-5" /></button>
           </div>
@@ -800,8 +800,8 @@ export default function AdminStorylinePage() {
             No entries yet — add your first work session above.
           </p>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-gray-800">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-lg border border-gray-800">
+            <table className="w-full min-w-[500px] text-sm">
               <thead>
                 <tr className="border-b border-gray-800 bg-gray-800/50 text-left text-xs uppercase tracking-wide text-gray-500">
                   <th className="px-3 py-2 font-medium">Date</th>

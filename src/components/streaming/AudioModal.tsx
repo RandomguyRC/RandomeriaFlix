@@ -190,7 +190,7 @@ export default function AudioModal({ item, items = [], onClose, onNavigate }: Au
           </button>
 
           {/* Audio visual area */}
-          <div className="relative flex-shrink-0 bg-gradient-to-br from-gray-900 via-gray-800 to-red-900/20 p-5 sm:p-8 md:p-12">
+          <div className="relative flex-shrink-0 bg-gradient-to-br from-gray-900 via-gray-800 to-red-900/20 p-8 sm:p-12">
             <audio
               ref={audioRef}
               src={`/api/media/${item.mainAsset.id}`}
@@ -203,12 +203,12 @@ export default function AudioModal({ item, items = [], onClose, onNavigate }: Au
             <div className="flex flex-col items-center gap-6">
               <button
                 onClick={togglePlayPause}
-                className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-all hover:scale-105 hover:bg-white/20 sm:h-20 sm:w-20"
+                className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-all hover:bg-white/20 hover:scale-105"
               >
                 {isPlaying ? (
-                  <Pause className="h-6 w-6 sm:h-8 sm:w-8" />
+                  <Pause className="h-8 w-8" />
                 ) : (
-                  <Play className="ml-1 h-6 w-6 sm:h-8 sm:w-8" />
+                  <Play className="ml-1 h-8 w-8" />
                 )}
               </button>
 
@@ -233,10 +233,10 @@ export default function AudioModal({ item, items = [], onClose, onNavigate }: Au
 
           {/* Details */}
           <div
-            className="audio-details flex-1 overflow-y-auto p-4 sm:p-6"
+            className="audio-details flex-1 overflow-y-auto p-6"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
-            <h2 className="text-lg font-bold text-white sm:text-2xl">{item.title}</h2>
+            <h2 className="text-2xl font-bold text-white">{item.title}</h2>
 
             <div className="mt-3 flex flex-wrap gap-3">
               {item.dateLabel && (

@@ -136,13 +136,13 @@ export default function AdminReelsPage() {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Reels</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">Reels</h1>
           <p className="mt-2 text-gray-400">Upload videos and photos for the Reels tab</p>
         </div>
         <button onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-red-700">
+          className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-red-700">
           <Plus className="h-5 w-5" /> Add Reel
         </button>
       </div>
@@ -150,7 +150,7 @@ export default function AdminReelsPage() {
       {/* Upload form */}
       {showForm && (
         <div className="mb-6 rounded-xl border border-gray-700 bg-gray-900 p-6">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-white">New Reel</h2>
             <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-white"><X className="h-5 w-5" /></button>
           </div>
@@ -225,7 +225,7 @@ export default function AdminReelsPage() {
       {/* Edit form */}
       {editingId && (
         <div className="mb-6 rounded-xl border border-gray-700 bg-gray-900 p-6">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-white">Edit Reel</h2>
             <button onClick={() => setEditingId(null)} className="text-gray-400 hover:text-white"><X className="h-5 w-5" /></button>
           </div>

@@ -189,7 +189,7 @@ export default function NewContentPage() {
         />
       )}
 
-      <h1 className="mb-8 text-3xl font-bold text-white">Add Content</h1>
+      <h1 className="mb-8 text-2xl sm:text-3xl font-bold text-white">Add Content</h1>
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Profile */}
         <div>

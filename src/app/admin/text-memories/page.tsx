@@ -90,13 +90,13 @@ export default function TextMemoriesPage() {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Text Memories</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">Text Memories</h1>
           <p className="mt-2 text-gray-400">Add memories for the bubble universe</p>
         </div>
         <button onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-red-700">
+          className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-red-700">
           <Plus className="h-5 w-5" /> Add Memory
         </button>
       </div>
@@ -104,7 +104,7 @@ export default function TextMemoriesPage() {
       {/* Add form */}
       {showForm && (
         <div className="mb-6 rounded-xl border border-gray-700 bg-gray-900 p-6">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-white">New Memory</h2>
             <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-white"><X className="h-5 w-5" /></button>
           </div>
