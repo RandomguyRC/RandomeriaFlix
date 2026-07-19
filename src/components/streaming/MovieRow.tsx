@@ -13,17 +13,7 @@ interface MovieRowProps {
 }
 
 const GAP = 12;
-
-// How many cards are visible at once, per breakpoint. Below md the row is a
-// native swipeable/scrollable strip (touch devices have no hover, so the
-// old JS-only translateX carousel was completely unreachable on mobile).
-function getVisibleCards(width: number) {
-  if (width < 480) return 2.3;
-  if (width < 640) return 2.8;
-  if (width < 768) return 3.4;
-  if (width < 1024) return 4;
-  return 5;
-}
+const VISIBLE_CARDS = 5;
 
 export default function MovieRow({
   title,
@@ -31,23 +21,21 @@ export default function MovieRow({
   onSelect,
 }: MovieRowProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
-  const scrollerRef = useRef<HTMLDivElement>(null);
+
+  const [page, setPage] = useState(0);
 
   const [cardWidth, setCardWidth] = useState(0);
-  const [visibleCards, setVisibleCards] = useState(5);
-  const [canGoLeft, setCanGoLeft] = useState(false);
-  const [canGoRight, setCanGoRight] = useState(false);
 
   useEffect(() => {
     function updateCardWidth() {
       if (!viewportRef.current) return;
 
       const viewportWidth = viewportRef.current.clientWidth;
-      const cards = getVisibleCards(window.innerWidth);
 
-      const width = (viewportWidth - GAP * (cards - 1)) / (cards + 0.25);
+      const width =
+        (viewportWidth - GAP * (VISIBLE_CARDS - 1)) /
+        (VISIBLE_CARDS + 0.25);
 
-      setVisibleCards(cards);
       setCardWidth(width);
     }
 
@@ -59,48 +47,37 @@ export default function MovieRow({
       window.removeEventListener("resize", updateCardWidth);
   }, []);
 
-  const updateArrows = useMemo(
-    () => () => {
-      const el = scrollerRef.current;
-      if (!el) return;
-      setCanGoLeft(el.scrollLeft > 4);
-      setCanGoRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
-    },
-    []
-  );
+  const maxPage = useMemo(() => {
+    return Math.max(
+      0,
+      Math.ceil(placements.length / VISIBLE_CARDS) - 1
+    );
+  }, [placements.length]);
 
-  useEffect(() => {
-    updateArrows();
-  }, [cardWidth, placements.length, updateArrows]);
+  const translate = page * (cardWidth + GAP) * VISIBLE_CARDS;
 
-  // Advance by one card fewer than the full page so a whole card stays
-  // peeking on the trailing edge (matches the old translateX carousel).
-  // This is a whole-card offset on purpose, never a fraction: fractional
-  // offsets don't land on a clean boundary and can leave a misaligned gap.
-  const advanceCards = Math.max(1, Math.floor(visibleCards) - 1);
+  const canGoLeft = page > 0;
+
+  const canGoRight = page < maxPage;
 
   function next() {
-    const el = scrollerRef.current;
-    if (!el) return;
-    el.scrollBy({ left: (cardWidth + GAP) * advanceCards, behavior: "smooth" });
+    setPage((p) => Math.min(maxPage, p + 1));
   }
 
   function previous() {
-    const el = scrollerRef.current;
-    if (!el) return;
-    el.scrollBy({ left: -(cardWidth + GAP) * advanceCards, behavior: "smooth" });
+    setPage((p) => Math.max(0, p - 1));
   }
 
   if (placements.length === 0) return null;
 
   return (
-    <section className="group/row mb-8 sm:mb-12">
+    <section className="group/row mb-12">
 
-      <h2 className="mb-3 pl-4 text-lg font-bold text-white sm:mb-4 sm:text-xl md:text-2xl">
+      <h2 className="mb-4 pl-12 text-2xl font-bold text-white">
         {title}
       </h2>
 
-      <div className="relative w-full flow-root">
+      <div className="relative w-full">
 
         {canGoLeft && (
           <button
@@ -110,8 +87,7 @@ export default function MovieRow({
               left-0
               -top-6
               -bottom-6
-              z-40
-              hidden
+              z-30
               w-24
               opacity-0
               transition-opacity
@@ -120,9 +96,9 @@ export default function MovieRow({
               bg-gradient-to-r
               from-black/90
               to-transparent
+              flex
               items-center
               justify-center
-              md:flex
             "
           >
             <ChevronLeft className="h-9 w-9 text-white" />
@@ -137,8 +113,7 @@ export default function MovieRow({
               right-0
               -top-6
               -bottom-6
-              z-40
-              hidden
+              z-30
               w-14
               opacity-0
               transition-opacity
@@ -147,9 +122,9 @@ export default function MovieRow({
               bg-gradient-to-l
               from-black/90
               to-transparent
+              flex
               items-center
               justify-center
-              md:flex
             "
           >
             <ChevronRight className="h-9 w-9 text-white" />
@@ -158,34 +133,27 @@ export default function MovieRow({
 
         <div
           ref={viewportRef}
-          className="overflow-visible pl-4 md:-my-8"
+          className="overflow-visible pl-12"
         >
 
           <div
-            ref={scrollerRef}
-            onScroll={updateArrows}
             className="
               flex
-              overflow-x-auto
-              scroll-smooth
-              scrollbar-hide
-              snap-x
-              snap-mandatory
-              pr-4
-              md:py-8
-              md:snap-none
+              pr-12
+              transition-transform
+              duration-500
+              ease-[cubic-bezier(.22,.61,.36,1)]
             "
             style={{
               gap: `${GAP}px`,
+              transform: `translateX(-${translate}px)`,
             }}
-          >
-            {placements.map((placement) => (
+          >            {placements.map((placement) => (
               <div
                 key={placement.id}
-                className="snap-start"
                 style={{
-                  width: cardWidth ? `${cardWidth}px` : undefined,
-                  flex: cardWidth ? `0 0 ${cardWidth}px` : "0 0 40%",
+                  width: `${cardWidth}px`,
+                  flex: `0 0 ${cardWidth}px`,
                 }}
               >
                 <MovieCard
