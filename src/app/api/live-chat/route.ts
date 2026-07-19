@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { touch, getStatus } from "@/lib/presence";
 
 // GET /api/live-chat?after=<ISO timestamp>
 // Returns messages newer than `after`. Omit `after` to get the last 100 messages (initial load).
@@ -9,6 +10,12 @@ export async function GET(request: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const role = session.role as "admin" | "viewer";
+  const otherRole = role === "admin" ? "viewer" : "admin";
+
+  // Every poll = a heartbeat: this user is actively looking at the chat right now.
+  touch(role);
 
   const { searchParams } = new URL(request.url);
   const after = searchParams.get("after");
@@ -29,13 +36,16 @@ export async function GET(request: NextRequest) {
   const ordered = after ? messages : messages.reverse();
 
   // Mark the other person's messages as read whenever this user polls/loads the chat.
-  const otherSender = session.role === "admin" ? "viewer" : "admin";
   await prisma.liveChatMessage.updateMany({
-    where: { sender: otherSender, readAt: null },
+    where: { sender: otherRole, readAt: null },
     data: { readAt: new Date() },
   });
 
-  return NextResponse.json({ messages: ordered, role: session.role });
+  return NextResponse.json({
+    messages: ordered,
+    role: session.role,
+    partnerStatus: getStatus(otherRole),
+  });
 }
 
 // POST /api/live-chat  { content: string }
