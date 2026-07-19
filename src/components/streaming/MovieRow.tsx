@@ -73,16 +73,24 @@ export default function MovieRow({
     updateArrows();
   }, [cardWidth, placements.length, updateArrows]);
 
+  // Scroll by slightly less than a full page of cards so the card just
+  // outside the viewport keeps peeking in on both edges (matches the old
+  // translateX carousel's "peek" look instead of landing exactly on a card
+  // boundary, which left a blank gap with nothing showing through).
+  const PEEK_CARDS = 0.2;
+
   function next() {
     const el = scrollerRef.current;
     if (!el) return;
-    el.scrollBy({ left: (cardWidth + GAP) * Math.max(1, Math.floor(visibleCards)), behavior: "smooth" });
+    const cards = Math.max(1, Math.floor(visibleCards) - PEEK_CARDS);
+    el.scrollBy({ left: (cardWidth + GAP) * cards, behavior: "smooth" });
   }
 
   function previous() {
     const el = scrollerRef.current;
     if (!el) return;
-    el.scrollBy({ left: -(cardWidth + GAP) * Math.max(1, Math.floor(visibleCards)), behavior: "smooth" });
+    const cards = Math.max(1, Math.floor(visibleCards) - PEEK_CARDS);
+    el.scrollBy({ left: -(cardWidth + GAP) * cards, behavior: "smooth" });
   }
 
   if (placements.length === 0) return null;
