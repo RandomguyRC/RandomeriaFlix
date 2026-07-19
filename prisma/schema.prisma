@@ -269,3 +269,13 @@ model MediaAsset {
   bookCovers     Book[]           @relation("BookCover")
   stickers       Sticker[]
 }
+
+model LiveChatMessage {
+  id        String   @id @default(cuid())
+  sender    String   // "admin" | "viewer"
+  content   String
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+
+  @@index([createdAt])
+}
