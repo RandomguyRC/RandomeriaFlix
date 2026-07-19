@@ -73,24 +73,22 @@ export default function MovieRow({
     updateArrows();
   }, [cardWidth, placements.length, updateArrows]);
 
-  // Scroll by slightly less than a full page of cards so the card just
-  // outside the viewport keeps peeking in on both edges (matches the old
-  // translateX carousel's "peek" look instead of landing exactly on a card
-  // boundary, which left a blank gap with nothing showing through).
-  const PEEK_CARDS = 0.2;
+  // Advance by one card fewer than the full page so a whole card stays
+  // peeking on the trailing edge (matches the old translateX carousel).
+  // This is a whole-card offset on purpose, never a fraction: fractional
+  // offsets don't land on a clean boundary and can leave a misaligned gap.
+  const advanceCards = Math.max(1, Math.floor(visibleCards) - 1);
 
   function next() {
     const el = scrollerRef.current;
     if (!el) return;
-    const cards = Math.max(1, Math.floor(visibleCards) - PEEK_CARDS);
-    el.scrollBy({ left: (cardWidth + GAP) * cards, behavior: "smooth" });
+    el.scrollBy({ left: (cardWidth + GAP) * advanceCards, behavior: "smooth" });
   }
 
   function previous() {
     const el = scrollerRef.current;
     if (!el) return;
-    const cards = Math.max(1, Math.floor(visibleCards) - PEEK_CARDS);
-    el.scrollBy({ left: -(cardWidth + GAP) * cards, behavior: "smooth" });
+    el.scrollBy({ left: -(cardWidth + GAP) * advanceCards, behavior: "smooth" });
   }
 
   if (placements.length === 0) return null;
