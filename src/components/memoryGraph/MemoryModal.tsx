@@ -2,6 +2,7 @@
 
 import { motion } from "motion/react";
 import { X } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { GraphNode } from "./types";
 
 interface MemoryModalProps {
@@ -13,9 +14,24 @@ export default function MemoryModal({ node, onClose }: MemoryModalProps) {
   const isRoot = node.type === "root";
   const isRandom = node.owner === "random";
 
-  // Bigger planets, scales with text
+  // Track viewport so the planet/bubble never overflows a small phone screen
+  const [viewport, setViewport] = useState({ w: 1200, h: 800 });
+  useEffect(() => {
+    function update() {
+      setViewport({ w: window.innerWidth, h: window.innerHeight });
+    }
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  // Bigger planets, scales with text — then shrunk to fit the viewport
   const textLength = (node.paragraph || "").length;
-  const r = isRoot ? 220 : Math.min(120 + textLength * 0.2, 220);
+  const rawR = isRoot ? 220 : Math.min(120 + textLength * 0.2, 220);
+  const rawDiameter = rawR * 2 + 40;
+  const maxAvailable = Math.min(viewport.w, viewport.h) * 0.86;
+  const fitScale = Math.min(1, maxAvailable / rawDiameter);
+  const r = rawR * fitScale;
 
   return (
     <motion.div

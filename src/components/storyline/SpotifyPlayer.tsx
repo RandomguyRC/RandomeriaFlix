@@ -176,7 +176,7 @@ export default function SpotifyPlayer({
           <motion.div
             key="expanded"
             initial={{ width: 60, height: 44, borderRadius: 22 }}
-            animate={{ width: 340, height: "auto", borderRadius: 20 }}
+            animate={{ width: "min(340px, 92vw)", height: "auto", borderRadius: 20 }}
             exit={{ width: 60, height: 44, borderRadius: 22 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="overflow-hidden bg-black/90 backdrop-blur-xl border border-white/10 shadow-2xl"
@@ -389,7 +389,7 @@ export default function SpotifyPlayer({
           <motion.div
             key="collapsed"
             initial={{ width: 340, height: "auto", borderRadius: 20 }}
-            animate={{ width: 220, height: 44, borderRadius: 22 }}
+            animate={{ width: "min(220px, 80vw)", height: 44, borderRadius: 22 }}
             exit={{ width: 340, height: "auto", borderRadius: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="cursor-pointer overflow-hidden bg-black/90 backdrop-blur-xl border border-white/10 shadow-2xl flex items-center px-2 gap-2"
