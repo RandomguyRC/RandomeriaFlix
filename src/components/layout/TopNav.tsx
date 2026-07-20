@@ -95,6 +95,16 @@ export default function TopNav({ profileSlug, initialTabs = [] }: TopNavProps) {
                 </Link>
               );
             })}
+            <Link
+              href={`/watch/${profileSlug}/space-selfie`}
+              className={`text-sm font-medium transition-colors ${
+                pathname === `/watch/${profileSlug}/space-selfie`
+                  ? "text-white"
+                  : "text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              Space Selfie
+            </Link>
           </div>
         </div>
 
@@ -177,6 +187,16 @@ export default function TopNav({ profileSlug, initialTabs = [] }: TopNavProps) {
                     </Link>
                   );
                 })}
+                <Link
+                  href={`/watch/${profileSlug}/space-selfie`}
+                  className={`py-3.5 text-base font-medium transition-colors ${
+                    pathname === `/watch/${profileSlug}/space-selfie`
+                      ? "text-white"
+                      : "text-gray-400 active:text-gray-200"
+                  }`}
+                >
+                  Space Selfie
+                </Link>
                 <Link
                   href="/profiles"
                   className="py-3.5 text-base font-medium text-gray-400 transition-colors active:text-gray-200"
