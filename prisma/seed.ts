@@ -52,6 +52,12 @@ async function main() {
       sortOrder: 30,
     },
     {
+      slug: "maps",
+      label: "Randomeria Maps",
+      kind: "MAPS",
+      sortOrder: 35,
+    },
+    {
       slug: "movies",
       label: "Movies",
       kind: "COLLECTION",

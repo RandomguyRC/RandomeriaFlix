@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { Film, Image, MessageSquare, BookOpen, Users, LayoutGrid } from "lucide-react";
+import { Film, Image, MessageSquare, BookOpen, Users, LayoutGrid, Map } from "lucide-react";
 import Link from "next/link";
 
 export default async function AdminDashboard() {
@@ -10,6 +10,7 @@ export default async function AdminDashboard() {
     chatImports,
     books,
     categories,
+    mapPlaces,
   ] = await Promise.all([
     prisma.profile.count(),
     prisma.contentItem.count(),
@@ -17,6 +18,7 @@ export default async function AdminDashboard() {
     prisma.chatImport.count(),
     prisma.book.count(),
     prisma.category.count(),
+    prisma.mapPlace.count(),
   ]);
 
   const stats = [
@@ -54,6 +56,13 @@ export default async function AdminDashboard() {
       icon: MessageSquare,
       href: "/admin/chat",
       color: "from-yellow-500 to-yellow-700",
+    },
+    {
+      label: "Map Places",
+      count: mapPlaces,
+      icon: Map,
+      href: "/admin/maps",
+      color: "from-cyan-500 to-sky-700",
     },
     {
       label: "Books",

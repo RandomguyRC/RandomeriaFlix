@@ -34,6 +34,7 @@ const AVAILABLE_TABS = [
   { slug: "reels", label: "Reels", kind: "COLLECTION" },
   { slug: "memories", label: "Memories", kind: "COLLECTION" },
   { slug: "storyline", label: "Storyline", kind: "STORYLINE" },
+  { slug: "maps", label: "Randomeria Maps", kind: "MAPS" },
   { slug: "livechat", label: "Live Chat", kind: "LIVE_CHAT" },
   { slug: "chat", label: "Chat History", kind: "CHAT" },
   { slug: "book", label: "Book", kind: "BOOK" },

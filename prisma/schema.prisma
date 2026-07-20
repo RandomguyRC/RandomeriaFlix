@@ -25,6 +25,53 @@ model Profile {
   books         Book[]
   textMemories  TextMemory[]
   stickers      Sticker[]
+  mapConfig     MapConfig?
+  mapPlaces     MapPlace[]
+}
+
+model MapConfig {
+  id          String   @id @default(cuid())
+  profileId   String   @unique
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  defaultLat  Float    @default(22.9734)
+  defaultLng  Float    @default(78.6569)
+  defaultZoom Int      @default(5)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model MapPlace {
+  id                 String       @id @default(cuid())
+  profileId          String
+  profile            Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title              String
+  description        String?
+  latitude           Float
+  longitude          Float
+  iconEmoji          String       @default("💖")
+  color              String       @default("rose")
+  thumbnailContentId String?
+  thumbnailContent   ContentItem? @relation("MapPlaceThumbnail", fields: [thumbnailContentId], references: [id], onDelete: SetNull)
+  sortOrder          Int          @default(0)
+  isPublished        Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  media              MapPlaceContent[]
+
+  @@index([profileId, sortOrder])
+}
+
+model MapPlaceContent {
+  id            String      @id @default(cuid())
+  mapPlaceId    String
+  mapPlace      MapPlace    @relation(fields: [mapPlaceId], references: [id], onDelete: Cascade)
+  contentItemId String
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  sortOrder     Int         @default(0)
+
+  @@unique([mapPlaceId, contentItemId])
+  @@index([mapPlaceId, sortOrder])
 }
 
 model SiteSetting {
@@ -109,6 +156,8 @@ model ContentItem {
   placements       ContentPlacement[]
   reelLikes        ReelLike[]
   reelComments     ReelComment[]
+  mapThumbnailFor  MapPlace[]        @relation("MapPlaceThumbnail")
+  mapPlaceMedia    MapPlaceContent[]
 }
 
 model ContentPlacement {
