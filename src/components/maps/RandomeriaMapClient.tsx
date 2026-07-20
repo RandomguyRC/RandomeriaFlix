@@ -103,37 +103,38 @@ export default function RandomeriaMapClient({ profileName, config, places }: Ran
               </div>
             </div>
           ) : (
-            <div className="relative min-h-[620px] overflow-hidden rounded-[2rem] border border-white/10 bg-black/35 shadow-[0_24px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-              <SlippyMap
-                center={{ lat: config.defaultLat, lng: config.defaultLng }}
-                zoom={config.defaultZoom}
-                markers={markers}
-                activeMarkerId={activeId}
-                onMarkerClick={selectPlace}
-                flyTo={flyTo ?? undefined}
-                className="h-[calc(100vh-230px)] min-h-[620px] w-full"
-              />
+            <div className="relative">
+              <div className="min-h-[620px] overflow-hidden rounded-[2rem] border border-white/10 bg-black/35 shadow-[0_24px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                <SlippyMap
+                  center={{ lat: config.defaultLat, lng: config.defaultLng }}
+                  zoom={config.defaultZoom}
+                  markers={markers}
+                  activeMarkerId={activeId}
+                  onMarkerClick={selectPlace}
+                  flyTo={flyTo ?? undefined}
+                  className="h-[calc(100vh-230px)] min-h-[620px] w-full"
+                />
+              </div>
 
-              <div className="pointer-events-none absolute left-0 top-0 z-20 h-full w-full bg-gradient-to-r from-black/55 via-transparent to-black/35 lg:from-black/50" />
+              <div className="pointer-events-none absolute inset-0 z-20 rounded-[2rem] bg-gradient-to-r from-black/55 via-transparent to-black/35" />
 
-              <div className="absolute left-4 top-20 z-30 hidden max-h-[calc(100%-7rem)] w-72 overflow-y-auto rounded-3xl border border-white/10 bg-black/45 p-3 shadow-2xl backdrop-blur-xl lg:block">
-                <p className="mb-3 px-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/45">Memory pins</p>
-                <div className="space-y-2">
-                  {places.map((place, index) => (
-                    <button
-                      key={place.id}
-                      onClick={() => selectPlace(place.id)}
-                      className={`flex w-full items-center gap-3 rounded-2xl border p-2 text-left transition-all ${activeId === place.id ? "border-rose-300/35 bg-rose-400/15" : "border-white/5 bg-white/[0.04] hover:border-white/15 hover:bg-white/[0.07]"}`}
-                    >
-                      <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/10 text-xl">
-                        {markerThumb(place) ? <img src={markerThumb(place)} alt="" className="h-full w-full object-cover" /> : place.iconEmoji}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-white">{place.title}</p>
-                        <p className="text-xs text-white/45">Stop {index + 1} · {place.media.length} memories</p>
-                      </div>
-                    </button>
-                  ))}
+              <div className="absolute left-4 top-4 bottom-4 z-30 hidden w-72 flex-col lg:flex">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/10 bg-black/45 shadow-2xl backdrop-blur-xl">
+                  <p className="shrink-0 px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/45">Memory pins</p>
+                  <div className="flex-1 space-y-2 overflow-y-auto px-3 pb-3" style={{ scrollbarWidth: "thin" }}>
+                    {places.map((place, index) => (
+                      <button key={place.id} onClick={() => selectPlace(place.id)}
+                        className={`flex w-full items-center gap-3 rounded-2xl border p-2 text-left transition-all ${activeId === place.id ? "border-rose-300/35 bg-rose-400/15" : "border-white/5 bg-white/[0.04] hover:border-white/15 hover:bg-white/[0.07]"}`}>
+                        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/10 text-xl">
+                          {markerThumb(place) ? <img src={markerThumb(place)} alt="" className="h-full w-full object-cover" /> : place.iconEmoji}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-white">{place.title}</p>
+                          <p className="text-xs text-white/45">Stop {index + 1} · {place.media.length} memories</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -169,10 +170,10 @@ export default function RandomeriaMapClient({ profileName, config, places }: Ran
                       <div className="absolute inset-0 bg-gradient-to-t from-[#080b12] via-transparent to-black/15" />
                       {activePlace.media.length > 1 && (
                         <>
-                          <button onClick={() => moveMedia(-1)} className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition-transform hover:scale-105" aria-label="Previous media">
+                          <button onClick={() => moveMedia(-1)} className="absolute left-3 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition-transform hover:scale-105" aria-label="Previous media">
                             <ChevronLeft className="h-5 w-5" />
                           </button>
-                          <button onClick={() => moveMedia(1)} className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition-transform hover:scale-105" aria-label="Next media">
+                          <button onClick={() => moveMedia(1)} className="absolute right-3 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition-transform hover:scale-105" aria-label="Next media">
                             <ChevronRight className="h-5 w-5" />
                           </button>
                           <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
