@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { statSync, createReadStream } from "fs";
 import { join } from "path";
-import { execSync } from "child_process";
 import crypto from "crypto";
 import sharp from "sharp";
 import { prisma } from "@/lib/db";
@@ -59,38 +58,6 @@ export async function GET(
 
     const isImage = isImageKind(asset.kind);
     const isStreaming = isStreamingKind(asset.kind);
-
-    // ── Video frame extraction via ?frame=1 ──────────────────────────
-    // Extract a still frame from a video for use as a thumbnail.
-    const frameParam = request.nextUrl.searchParams.get("frame");
-    if (frameParam !== null && isStreaming) {
-      const frameEtag = makeEtag(fileSize, mtimeMs, "frame", frameParam);
-
-      const ifNoneMatchFrame = request.headers.get("if-none-match");
-      if (ifNoneMatchFrame === frameEtag) {
-        return new Response(null, { status: 304 });
-      }
-
-      const frameBuffer = execSync(
-        `ffmpeg -ss 0 -i ${JSON.stringify(filePath)} -vframes 1 -f image2pipe -vcodec mjpeg -q:v 5 -`,
-        { timeout: 10000, maxBuffer: 5 * 1024 * 1024 }
-      );
-
-      const resized = await sharp(frameBuffer)
-        .resize({ width: 320, withoutEnlargement: true })
-        .webp({ quality: 80 })
-        .toBuffer();
-
-      return new Response(resized as unknown as BodyInit, {
-        headers: {
-          "Content-Type": "image/webp",
-          "Cache-Control": IMMUTABLE_CACHE,
-          "ETag": frameEtag,
-          "Content-Length": String(resized.length),
-        },
-      });
-    }
-
     const cacheControl = isImage
       ? IMMUTABLE_CACHE
       : isStreaming

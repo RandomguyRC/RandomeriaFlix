@@ -147,6 +147,43 @@ export default function SlippyMap({
     return () => observer.disconnect();
   }, []);
 
+  // Non-passive wheel handler — prevents page scroll while zooming the map
+  // Uses refs to avoid stale closures in setView's updater callback.
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
+  const emitRef = useRef(emit);
+  emitRef.current = emit;
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    function onWheel(e: WheelEvent) {
+      e.preventDefault();
+      setView((current) => {
+        const dz = e.deltaY < 0 ? 1 : -1;
+        const z = clamp(current.zoom + dz, MIN_ZOOM, MAX_ZOOM);
+        if (z === current.zoom) return current;
+        const rect = el.getBoundingClientRect();
+        const tl = project(current.lat, current.lng, current.zoom);
+        const topL = { x: tl.x - sizeRef.current.width / 2, y: tl.y - sizeRef.current.height / 2 };
+        const pointLngLat = unproject(topL.x + e.clientX - rect.left, topL.y + e.clientY - rect.top, current.zoom);
+        const pointAtNewZoom = project(pointLngLat.lat, pointLngLat.lng, z);
+        const newCenterWorld = {
+          x: pointAtNewZoom.x - (e.clientX - rect.left - sizeRef.current.width / 2),
+          y: pointAtNewZoom.y - (e.clientY - rect.top - sizeRef.current.height / 2),
+        };
+        const nextCenter = normalizeCenter(unproject(newCenterWorld.x, newCenterWorld.y, z).lat, unproject(newCenterWorld.x, newCenterWorld.y, z).lng);
+        const next = { ...nextCenter, zoom: z };
+        emitRef.current(next);
+        return next;
+      });
+    }
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
   const centerWorld = useMemo(() => project(view.lat, view.lng, view.zoom), [view]);
   const topLeft = {
     x: centerWorld.x - size.width / 2,
@@ -242,10 +279,6 @@ export default function SlippyMap({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={() => { dragRef.current = null; }}
-      onWheel={(e) => {
-        e.preventDefault();
-        setZoom(view.zoom + (e.deltaY < 0 ? 1 : -1), { clientX: e.clientX, clientY: e.clientY });
-      }}
     >
       <div className="absolute inset-0">
         {tiles.map((tile) => (

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Eye, EyeOff, Film, ImageIcon, Loader2, MapPin, Pencil, Save, Trash2, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import SlippyMap from "@/components/maps/SlippyMap";
+import VideoFrameThumb from "@/components/maps/VideoFrameThumb";
 import type { MapConfig, MapMarker, MapPlace } from "@/components/maps/types";
 
 interface Profile {
@@ -60,10 +61,7 @@ const COLORS = [
 ];
 
 function mediaThumb(item: ContentItem) {
-  if (item.thumbnailAsset?.id) return `/api/media/${item.thumbnailAsset.id}`;
-  // For videos without a thumbnail, extract a frame on-the-fly
-  if (item.type === "VIDEO") return `/api/media/${item.mainAsset.id}?frame=1`;
-  return `/api/media/${item.mainAsset.id}`;
+  return `/api/media/${item.thumbnailAsset?.id || item.mainAsset.id}`;
 }
 
 function markerThumb(place: MapPlace) {
@@ -465,7 +463,11 @@ export default function AdminMapsPage() {
                     return (
                       <button key={id} type="button" onClick={() => toggleContent(id)}
                         className="group relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 transition-all hover:border-red-400">
-                        <img src={mediaThumb(item)} alt="" className="h-full w-full object-cover" />
+                        {item.type === "VIDEO" && !item.thumbnailAsset?.id ? (
+                          <VideoFrameThumb src={`/api/media/${item.mainAsset.id}`} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <img src={mediaThumb(item)} alt="" className="h-full w-full object-cover" />
+                        )}
                         <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                           <X className="h-5 w-5 text-red-300" />
                         </div>
@@ -568,7 +570,11 @@ export default function AdminMapsPage() {
                                 : "border-gray-700 hover:border-gray-500"
                             }`}
                           >
-                            <img src={mediaThumb(item)} alt={item.title} className="h-full w-full object-cover" />
+                            {item.type === "VIDEO" && !item.thumbnailAsset?.id ? (
+                              <VideoFrameThumb src={`/api/media/${item.mainAsset.id}`} alt={item.title} className="h-full w-full object-cover" />
+                            ) : (
+                              <img src={mediaThumb(item)} alt={item.title} className="h-full w-full object-cover" />
+                            )}
                             {checked && (
                               <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-lg">
                                 ✓
