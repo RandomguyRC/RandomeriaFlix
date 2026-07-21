@@ -80,6 +80,7 @@ export async function GET(
         }
 
         const buffer = await sharp(filePath)
+          .rotate() // auto-applies EXIF orientation so the pixel data is physically rotated
           .resize({ width, withoutEnlargement: true })
           .webp({ quality: 80 })
           .toBuffer();
@@ -139,6 +140,25 @@ export async function GET(
     }
 
     // ── Full file — stream it ─────────────────────────────────────────
+    // For images we pipe through sharp's .rotate() to bake EXIF orientation
+    // into pixel data — browsers handle EXIF inconsistently.  Videos/audio
+    // stream the original bytes directly for proper range-request support.
+    if (isImage) {
+      const buffer = await sharp(filePath)
+        .rotate()
+        .jpeg({ quality: 92 })
+        .toBuffer();
+
+      return new Response(buffer as unknown as BodyInit, {
+        headers: {
+          "Content-Type": asset.mimeType,
+          "Cache-Control": cacheControl,
+          "ETag": etag,
+          "Content-Length": String(buffer.length),
+        },
+      });
+    }
+
     const stream = createReadStream(filePath);
 
     const webStream = new ReadableStream({
