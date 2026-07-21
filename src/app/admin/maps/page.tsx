@@ -60,6 +60,8 @@ const COLORS = [
 ];
 
 function mediaThumb(item: ContentItem) {
+  // Video items without a thumbnail asset can't render in <img>
+  if (item.type === "VIDEO" && !item.thumbnailAsset?.id) return undefined;
   return `/api/media/${item.thumbnailAsset?.id || item.mainAsset.id}`;
 }
 
@@ -462,7 +464,13 @@ export default function AdminMapsPage() {
                     return (
                       <button key={id} type="button" onClick={() => toggleContent(id)}
                         className="group relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 transition-all hover:border-red-400">
-                        <img src={mediaThumb(item)} alt="" className="h-full w-full object-cover" />
+                        {item.type === "VIDEO" && !item.thumbnailAsset?.id ? (
+                          <div className="flex h-full w-full items-center justify-center bg-gray-800">
+                            <Film className="h-5 w-5 text-gray-500" />
+                          </div>
+                        ) : (
+                          <img src={mediaThumb(item)} alt="" className="h-full w-full object-cover" />
+                        )}
                         <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                           <X className="h-5 w-5 text-red-300" />
                         </div>
@@ -565,7 +573,16 @@ export default function AdminMapsPage() {
                                 : "border-gray-700 hover:border-gray-500"
                             }`}
                           >
-                            <img src={mediaThumb(item)} alt={item.title} className="h-full w-full object-cover" />
+                            {item.type === "VIDEO" && !item.thumbnailAsset?.id ? (
+                              <div className="flex h-full w-full items-center justify-center bg-gray-800">
+                                <div className="text-center">
+                                  <Film className="mx-auto h-8 w-8 text-gray-500" />
+                                  <p className="mt-1 text-[10px] text-gray-500">Video</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <img src={mediaThumb(item)} alt={item.title} className="h-full w-full object-cover" />
+                            )}
                             {checked && (
                               <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-lg">
                                 ✓
