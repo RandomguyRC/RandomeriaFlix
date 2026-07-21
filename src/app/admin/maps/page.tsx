@@ -84,6 +84,7 @@ export default function AdminMapsPage() {
   const [savingConfig, setSavingConfig] = useState(false);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom: number } | null>(null);
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  const [mediaFilterCategory, setMediaFilterCategory] = useState<string | null>(null);
 
   // Group content by category ("Uncategorized" for items without placements)
   const contentByCategory = useMemo(() => {
@@ -356,7 +357,7 @@ export default function AdminMapsPage() {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-300">Attached media ({form.contentIds.length})</label>
-              <button type="button" onClick={() => setMediaPickerOpen(true)}
+              <button type="button" onClick={() => { setMediaFilterCategory(null); setMediaPickerOpen(true); }}
                 className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-700 bg-gray-950/30 px-4 py-4 text-sm text-gray-400 transition-colors hover:border-gray-500 hover:text-gray-300">
                 <span className="text-lg">🖼️</span> Browse &amp; select photos / videos
               </button>
@@ -427,10 +428,34 @@ export default function AdminMapsPage() {
                 </button>
               </div>
 
+              {/* Category filter chips */}
+              {contentByCategory.length > 1 && (
+                <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-gray-800 px-6 py-3 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+                  <button type="button" onClick={() => setMediaFilterCategory(null)}
+                    className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+                      mediaFilterCategory === null
+                        ? "bg-red-600 text-white"
+                        : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
+                    }`}>
+                    All
+                  </button>
+                  {contentByCategory.map((cat) => (
+                    <button key={cat.id} type="button" onClick={() => setMediaFilterCategory(cat.id)}
+                      className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+                        mediaFilterCategory === cat.id
+                          ? "bg-red-600 text-white"
+                          : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
+                      }`}>
+                      {cat.catName}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div className="flex-1 overflow-y-auto px-6 py-5">
                 {contentByCategory.length === 0 ? (
                   <p className="py-10 text-center text-gray-500">No photos or videos found for this profile.</p>
-                ) : contentByCategory.map((cat) => (
+                ) : contentByCategory.filter((cat) => mediaFilterCategory === null || cat.id === mediaFilterCategory).map((cat) => (
                   <div key={cat.id} className="mb-6 last:mb-0">
                     <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{cat.catName}</h3>
                     <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
