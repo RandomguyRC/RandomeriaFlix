@@ -21,7 +21,10 @@ export default function MovieCard({
   const hasMusic = !!item.musicAsset;
   const startMs = item.musicStartMs ?? 0;
 
-  // ── Intersection Observer — only load img/video when card enters viewport ──
+  // ── Intersection Observer — eagerly preload images far before they scroll in ──
+  // A 1000px margin means ~5-8 cards load ahead of the viewport, which gives
+  // them plenty of time to download before the user scrolls there.  The skeleton
+  // placeholder only shows during the brief window between trigger and response.
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
@@ -30,10 +33,10 @@ export default function MovieCard({
       ([entry]) => {
         if (entry.isIntersecting) {
           setIsVisible(true);
-          observer.disconnect(); // one-shot — no need to keep observing
+          observer.disconnect();
         }
       },
-      { rootMargin: "200px" } // start loading 200px before it enters viewport
+      { rootMargin: "1000px" }
     );
 
     observer.observe(el);
@@ -86,7 +89,7 @@ export default function MovieCard({
         />
       )}
 
-      {/* Only render the image when the card is visible (or about to be) */}
+      {/* Only render the image when the card is near the viewport */}
       {item.type === "AUDIO" ? (
         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-800 via-gray-900 to-red-900/30">
           <svg className="h-16 w-16 text-gray-500 transition-colors duration-300 group-hover:text-red-400" fill="currentColor" viewBox="0 0 24 24">
@@ -94,28 +97,20 @@ export default function MovieCard({
           </svg>
         </div>
       ) : isVisible ? (
-        item.thumbnailAsset ? (
-          <img
-            src={`/api/media/${item.thumbnailAsset.id}`}
-            alt={item.title}
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <img
-            // Use ?w=400 to request a downscaled WebP thumbnail instead of
-            // the full-size original — huge bandwidth and memory saving.
-            src={`/api/media/${item.mainAsset.id}?w=400`}
-            alt={item.title}
-            loading="lazy"
-            className="h-full w-full object-cover"
-            style={{
-              objectPosition: `${item.thumbCropX ?? 50}% ${item.thumbCropY ?? 50}%`,
-            }}
-          />
-        )
+        <img
+          // Use ?w=400 to request a downscaled WebP thumbnail instead of
+          // the full-size original — huge bandwidth and memory saving.
+          src={item.thumbnailAsset ? `/api/media/${item.thumbnailAsset.id}` : `/api/media/${item.mainAsset.id}?w=400`}
+          alt={item.title}
+          loading="eager"
+          className="h-full w-full object-cover transition-opacity duration-300"
+          style={{
+            objectPosition: `${item.thumbCropX ?? 50}% ${item.thumbCropY ?? 50}%`,
+          }}
+        />
       ) : (
-        /* Skeleton placeholder until card scrolls into view */
+        /* Skeleton placeholder until card scrolls into view — starts invisible,
+           then our IntersectionObserver triggers the image load ~1000px ahead. */
         <div className="h-full w-full bg-zinc-800 animate-pulse" />
       )}
 
