@@ -71,7 +71,7 @@ export default function RandomeriaMapClient({ profileName, config, places }: Ran
               </div>
               <h1 className="font-serif text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
                 Our little universe,
-                <span className="block bg-gradient-to-r from-rose-200 via-amber-100 to-sky-200 bg-clip-text text-transparent">pinned across India.</span>
+                <span className="block bg-gradient-to-r from-rose-200 via-amber-100 to-sky-200 bg-clip-text text-transparent">pinned across Varanasi.</span>
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-white/62 sm:text-base">
                 Tap a glowing memory marker to revisit the places that became chapters for {profileName}.
@@ -227,6 +227,14 @@ export default function RandomeriaMapClient({ profileName, config, places }: Ran
                   </motion.aside>
                 )}
               </AnimatePresence>
+            </div>
+          )}
+
+          {config.description && (
+            <div className="mx-auto max-w-3xl text-center">
+              <div className="inline-block rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-4 backdrop-blur-md">
+                <p className="text-sm leading-relaxed text-white/60 italic">{config.description}</p>
+              </div>
             </div>
           )}
         </div>

@@ -36,6 +36,7 @@ model MapConfig {
   defaultLat  Float    @default(22.9734)
   defaultLng  Float    @default(78.6569)
   defaultZoom Int      @default(5)
+  description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

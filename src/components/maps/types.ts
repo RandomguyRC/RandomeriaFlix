@@ -35,6 +35,7 @@ export interface MapConfig {
   defaultLat: number;
   defaultLng: number;
   defaultZoom: number;
+  description?: string | null;
 }
 
 export interface MapMarker {

@@ -8,6 +8,7 @@ const configSchema = z.object({
   defaultLat: z.number().min(-90).max(90),
   defaultLng: z.number().min(-180).max(180),
   defaultZoom: z.number().int().min(3).max(18),
+  description: z.string().optional().nullable(),
 });
 
 export async function POST(request: NextRequest) {
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
         defaultLat: data.defaultLat,
         defaultLng: data.defaultLng,
         defaultZoom: data.defaultZoom,
+        description: data.description ?? null,
       },
       create: data,
     });

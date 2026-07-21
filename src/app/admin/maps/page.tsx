@@ -393,14 +393,26 @@ export default function AdminMapsPage() {
             flyTo={flyTo}
             className="h-[560px] w-full"
           />
-          <div className="flex flex-col gap-3 border-t border-gray-800 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-gray-400">
+          <div className="flex items-center justify-between gap-3 border-t border-gray-800 bg-gray-950/50 p-4">
+            <div className="min-w-0 text-sm text-gray-400">
               Default view: {config.defaultLat.toFixed(4)}, {config.defaultLng.toFixed(4)} · zoom {config.defaultZoom}
             </div>
-            <button onClick={saveDefaultView} disabled={savingConfig} className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-200 hover:bg-gray-700 disabled:opacity-50">
+            <button onClick={saveDefaultView} disabled={savingConfig} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-200 hover:bg-gray-700 disabled:opacity-50">
               {savingConfig ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Save default view
             </button>
+          </div>
+
+          <div className="border-t border-gray-800 p-4">
+            <label className="mb-2 block text-sm font-medium text-gray-300">Note below the map</label>
+            <textarea
+              value={config.description || ""}
+              onChange={(e) => setConfig((current) => ({ ...current, description: e.target.value }))}
+              rows={3}
+              placeholder="A special note to show beneath the map..."
+              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-red-500 focus:outline-none"
+            />
+            <p className="mt-1.5 text-xs text-gray-500">Shown in an italic box below the map on the viewer&apos;s page.</p>
           </div>
         </div>
 
