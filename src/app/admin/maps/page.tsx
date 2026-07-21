@@ -83,6 +83,7 @@ export default function AdminMapsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom: number } | null>(null);
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
   const [mediaFilterCategory, setMediaFilterCategory] = useState<string | null>(null);
@@ -360,6 +361,23 @@ export default function AdminMapsPage() {
     }
   }
 
+  async function saveDescription() {
+    if (!profileId) return;
+    setSavingNote(true);
+    try {
+      const res = await fetch("/api/admin/maps/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileId, ...config }),
+      });
+      if (!res.ok) { alert("Failed to save note"); return; }
+      // Sync the form state so the note persists in the UI
+      setConfig((current) => ({ ...current }));
+    } finally {
+      setSavingNote(false);
+    }
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-red-500" /></div>;
   }
@@ -412,7 +430,14 @@ export default function AdminMapsPage() {
               placeholder="A special note to show beneath the map..."
               className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-red-500 focus:outline-none"
             />
-            <p className="mt-1.5 text-xs text-gray-500">Shown in an italic box below the map on the viewer&apos;s page.</p>
+            <div className="mt-3 flex items-center gap-3">
+              <button onClick={saveDescription} disabled={savingNote}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-red-700 disabled:opacity-50">
+                {savingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save note
+              </button>
+              <p className="text-xs text-gray-500">Shown in an italic box below the map on the viewer&apos;s page.</p>
+            </div>
           </div>
         </div>
 
