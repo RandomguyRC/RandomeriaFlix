@@ -2,13 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { readSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await readSession();
   if (!session || session.role !== "admin") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const profileId = searchParams.get("profileId");
+
+  const where = profileId ? { profileId } : {};
+
   const events = await prisma.storyEvent.findMany({
+    where,
     include: {
       profile: { select: { id: true, name: true, slug: true } },
       asset: { select: { id: true, mimeType: true } },

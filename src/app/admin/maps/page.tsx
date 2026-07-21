@@ -85,8 +85,36 @@ export default function AdminMapsPage() {
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom: number } | null>(null);
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
   const [mediaFilterCategory, setMediaFilterCategory] = useState<string | null>(null);
+  const [storylineEvents, setStorylineEvents] = useState<StoryEventItem[]>([]);
+
+  interface StoryEventItem {
+    id: string;
+    title: string;
+    assetId?: string | null;
+    asset?: { id: string; mimeType: string } | null;
+  }
+
+  // Build virtual ContentItems from storyline event images (resolved lazily)
+  const storylineContentItems = useMemo((): ContentItem[] => {
+    return storylineEvents
+      .filter((e) => e.assetId || e.asset?.id)
+      .map((e) => {
+        const assetId = e.assetId || e.asset!.id;
+        const isVideo = (e.asset?.mimeType || "").startsWith("video/");
+        // Temporarily use assetId as a placeholder — resolved to real ContentItem on toggle
+        return {
+          id: `storyline:${e.id}:${assetId}`,
+          title: e.title || "Storyline image",
+          type: isVideo ? "VIDEO" : "PHOTO",
+          mainAsset: { id: assetId, mimeType: e.asset?.mimeType || "image/jpeg" },
+          placements: [],
+          _storylineAssetId: assetId,
+        } as ContentItem & { _storylineAssetId: string };
+      });
+  }, [storylineEvents]);
 
   // Group content by category ("Uncategorized" for items without placements)
+  // Merged with Storyline virtual category
   const contentByCategory = useMemo(() => {
     const map = new Map<string, { catName: string; items: ContentItem[] }>();
     const ungrouped: ContentItem[] = [];
@@ -100,8 +128,20 @@ export default function AdminMapsPage() {
     }
     const entries = Array.from(map.entries()).map(([id, v]) => ({ id, ...v }));
     if (ungrouped.length > 0) entries.push({ id: "__uncategorized", catName: "Uncategorized", items: ungrouped });
+    // Add Storyline virtual category
+    if (storylineContentItems.length > 0) {
+      entries.push({ id: "__storyline", catName: "Storyline", items: storylineContentItems });
+    }
     return entries;
-  }, [content]);
+  }, [content, storylineContentItems]);
+
+  // Combined content + storyline items for lookups (e.g. thumbnail select, media preview)
+  const mergedContent = useMemo(() => {
+    const map = new Map<string, ContentItem>();
+    for (const item of content) map.set(item.id, item);
+    for (const item of storylineContentItems) map.set(item.id, item);
+    return map;
+  }, [content, storylineContentItems]);
 
   useEffect(() => { fetchProfiles(); }, []);
 
@@ -128,7 +168,7 @@ export default function AdminMapsPage() {
     longitude: form.longitude,
     iconEmoji: form.iconEmoji,
     color: form.color,
-    thumbnailUrl: content.find((c) => c.id === (form.thumbnailContentId || form.contentIds[0])) ? mediaThumb(content.find((c) => c.id === (form.thumbnailContentId || form.contentIds[0]))!) : undefined,
+    thumbnailUrl: mergedContent.get(form.thumbnailContentId || form.contentIds[0]) ? mediaThumb(mergedContent.get(form.thumbnailContentId || form.contentIds[0])!) : undefined,
   };
 
   async function fetchProfiles() {
@@ -152,10 +192,17 @@ export default function AdminMapsPage() {
   }
 
   async function fetchContent(pId: string) {
-    const res = await fetch(`/api/admin/content?profileId=${pId}`);
-    if (res.ok) {
-      const data = await res.json();
+    const [contentRes, storyRes] = await Promise.all([
+      fetch(`/api/admin/content?profileId=${pId}`),
+      fetch(`/api/admin/storyline?profileId=${pId}`),
+    ]);
+    if (contentRes.ok) {
+      const data = await contentRes.json();
       setContent(data.filter((item: ContentItem) => item.type === "PHOTO" || item.type === "VIDEO"));
+    }
+    if (storyRes.ok) {
+      const data = await storyRes.json();
+      setStorylineEvents(data);
     }
   }
 
@@ -192,12 +239,58 @@ export default function AdminMapsPage() {
     });
   }
 
+  // Resolve storyline virtual IDs to real ContentItem IDs before saving
+  async function resolveContentIds(ids: string[]): Promise<string[]> {
+    const storylineAssetIds: string[] = [];
+    for (const id of ids) {
+      if (id.startsWith("storyline:")) {
+        const parts = id.split(":");
+        if (parts[2]) storylineAssetIds.push(parts[2]);
+      }
+    }
+    if (storylineAssetIds.length === 0) return ids;
+
+    const res = await fetch("/api/admin/maps/resolve-storyline", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assetIds: storylineAssetIds, profileId }),
+    });
+    if (!res.ok) throw new Error("Failed to resolve storyline assets");
+
+    const { results } = await res.json();
+    const assetToContent = new Map(results.map((r: { assetId: string; contentItemId: string }) => [r.assetId, r.contentItemId]));
+
+    return ids.map((id) => {
+      if (!id.startsWith("storyline:")) return id;
+      const parts = id.split(":");
+      return assetToContent.get(parts[2]) || id;
+    });
+  }
+
   async function savePlace(e: React.FormEvent) {
     e.preventDefault();
     if (!profileId) return;
     if (!form.title.trim()) { alert("Add a place title"); return; }
     setSaving(true);
     try {
+      const resolvedIds = await resolveContentIds(form.contentIds);
+
+      // Resolve the thumbnail ID too — it may be a storyline virtual ID
+      let resolvedThumb = form.thumbnailContentId;
+      if (resolvedThumb) {
+        if (resolvedThumb.startsWith("storyline:")) {
+          const resolvedAll = await resolveContentIds([resolvedThumb]);
+          resolvedThumb = resolvedAll[0] || resolvedThumb;
+        }
+        if (!resolvedIds.includes(resolvedThumb)) {
+          resolvedThumb = resolvedIds[0] || "";
+        }
+      }
+      if (!resolvedIds.includes(resolvedThumb)) {
+        resolvedThumb = resolvedIds[0] || "";
+      }
+      // Update local state with resolved IDs so subsequent saves are fast
+      setForm((current) => ({ ...current, contentIds: resolvedIds, thumbnailContentId: resolvedThumb }));
       const payload = {
         profileId,
         title: form.title.trim(),
@@ -206,9 +299,9 @@ export default function AdminMapsPage() {
         longitude: Number(form.longitude),
         iconEmoji: form.iconEmoji.trim() || "💖",
         color: form.color,
-        thumbnailContentId: form.thumbnailContentId || undefined,
+        thumbnailContentId: resolvedThumb || undefined,
         isPublished: form.isPublished,
-        contentIds: form.contentIds,
+        contentIds: resolvedIds,
       };
       const res = await fetch(form.id ? `/api/admin/maps/${form.id}` : "/api/admin/maps", {
         method: form.id ? "PATCH" : "POST",
@@ -364,7 +457,7 @@ export default function AdminMapsPage() {
               {form.contentIds.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {form.contentIds.map((id) => {
-                    const item = content.find((c) => c.id === id);
+                    const item = mergedContent.get(id);
                     if (!item) return null;
                     return (
                       <button key={id} type="button" onClick={() => toggleContent(id)}
@@ -388,7 +481,7 @@ export default function AdminMapsPage() {
                 <label className="mb-2 block text-sm font-medium text-gray-300">Marker thumbnail</label>
                 <select value={form.thumbnailContentId} onChange={(e) => setForm({ ...form, thumbnailContentId: e.target.value })} className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-3 text-white focus:border-red-500 focus:outline-none">
                   {form.contentIds.map((id) => {
-                    const item = content.find((c) => c.id === id);
+                    const item = mergedContent.get(id);
                     return item ? <option key={id} value={id}>{item.title}</option> : null;
                   })}
                 </select>
@@ -430,7 +523,7 @@ export default function AdminMapsPage() {
 
               {/* Category filter chips */}
               {contentByCategory.length > 1 && (
-                <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-gray-800 px-6 py-3 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+                <div className="flex shrink-0 flex-wrap gap-2 border-b border-gray-800 px-6 py-3">
                   <button type="button" onClick={() => setMediaFilterCategory(null)}
                     className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
                       mediaFilterCategory === null
