@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Compress text assets (HTML, JS, CSS) with gzip on the fly.
+  // Media files bypass this — they're served by the /api/media route
+  // with their own caching headers instead.
+  compress: true,
 };
 
 export default nextConfig;

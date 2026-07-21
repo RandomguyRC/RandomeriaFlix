@@ -30,5 +30,5 @@ export default function StickerMedia({ assetId, mimeType, title, className, expa
   }
 
   // image/png, image/webp (static or animated), image/gif (animated) all autoplay natively via <img>
-  return <img src={src} alt={title || "Sticker"} className={className} />;
+  return <img src={src} alt={title || "Sticker"} className={className} loading="lazy" />;
 }

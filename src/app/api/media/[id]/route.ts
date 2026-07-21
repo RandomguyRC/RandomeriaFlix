@@ -1,8 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { statSync, createReadStream } from "fs";
 import { join } from "path";
+import crypto from "crypto";
+import sharp from "sharp";
 import { prisma } from "@/lib/db";
 import { readSession } from "@/lib/auth";
+
+/** Serve images with long-lived cache (they're immutable once uploaded). */
+const IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
+
+/** Serve videos and audio with shorter cache — still long, but allow revalidation. */
+const STREAMING_CACHE = "public, max-age=86400, must-revalidate";
+
+function isImageKind(kind: string) {
+  return kind === "IMAGE";
+}
+
+function isStreamingKind(kind: string) {
+  return kind === "VIDEO" || kind === "AUDIO";
+}
+
+function makeEtag(...parts: (string | number)[]): string {
+  return crypto.createHash("md5").update(parts.join("-")).digest("hex").slice(0, 16);
+}
 
 export async function GET(
   request: NextRequest,
@@ -25,9 +45,61 @@ export async function GET(
   try {
     const stats = statSync(filePath);
     const fileSize = stats.size;
+    const mtimeMs = stats.mtimeMs;
+
+    // ETag from file size and mtime — content-addressed, cheap to compute.
+    const etag = makeEtag(fileSize, mtimeMs);
+
+    // Honour If-None-Match — browser can skip the full response.
+    const ifNoneMatch = request.headers.get("if-none-match");
+    if (ifNoneMatch === etag) {
+      return new Response(null, { status: 304 });
+    }
+
+    const isImage = isImageKind(asset.kind);
+    const isStreaming = isStreamingKind(asset.kind);
+    const cacheControl = isImage
+      ? IMMUTABLE_CACHE
+      : isStreaming
+        ? STREAMING_CACHE
+        : "public, max-age=3600";
+
+    // ── On-the-fly image resizing via ?w= width parameter ────────────
+    // MovieCards and other thumbnails request small widths instead of
+    // downloading huge originals.  Sharp handles the resize server-side.
+    // Resized output is converted to WebP with no disk I/O.
+    const resizeWidth = request.nextUrl.searchParams.get("w");
+    if (resizeWidth && isImage) {
+      const width = parseInt(resizeWidth, 10);
+      if (width > 0 && width < 4000) {
+        const resizedEtag = makeEtag(fileSize, mtimeMs, "w", width);
+
+        const ifNoneMatchResized = request.headers.get("if-none-match");
+        if (ifNoneMatchResized === resizedEtag) {
+          return new Response(null, { status: 304 });
+        }
+
+        const buffer = await sharp(filePath)
+          .resize({ width, withoutEnlargement: true })
+          .webp({ quality: 80 })
+          .toBuffer();
+
+        return new Response(buffer as unknown as BodyInit, {
+          headers: {
+            "Content-Type": "image/webp",
+            "Cache-Control": IMMUTABLE_CACHE,
+            "ETag": resizedEtag,
+            "Content-Length": String(buffer.length),
+          },
+        });
+      }
+      // Invalid width — fall through and serve the original
+    }
+
     const range = request.headers.get("range");
 
-    if (range) {
+    // ── Range request (used by video/audio players) ───────────────────
+    if (range && isStreaming) {
       const parts = range.replace(/bytes=/, "").split("-");
       const start = parseInt(parts[0], 10);
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
@@ -35,14 +107,12 @@ export async function GET(
 
       const stream = createReadStream(filePath, { start, end });
 
-      // Convert Node stream to Web ReadableStream with proper error handling
       const webStream = new ReadableStream({
         start(controller) {
-          stream.on("data", (chunk) => {
+          stream.on("data", (chunk: Buffer) => {
             try {
-              controller.enqueue(new Uint8Array(chunk));
+              controller.enqueue(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength));
             } catch {
-              // Controller already closed (client disconnected) — stop cleanly
               stream.destroy();
             }
           });
@@ -62,18 +132,20 @@ export async function GET(
           "Accept-Ranges": "bytes",
           "Content-Length": String(chunkSize),
           "Content-Type": asset.mimeType,
+          "Cache-Control": cacheControl,
+          "ETag": etag,
         },
       });
     }
 
-    // Full file — stream it
+    // ── Full file — stream it ─────────────────────────────────────────
     const stream = createReadStream(filePath);
 
     const webStream = new ReadableStream({
       start(controller) {
-        stream.on("data", (chunk) => {
+        stream.on("data", (chunk: Buffer) => {
           try {
-            controller.enqueue(new Uint8Array(chunk));
+            controller.enqueue(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength));
           } catch {
             stream.destroy();
           }
@@ -92,6 +164,8 @@ export async function GET(
         "Content-Length": String(fileSize),
         "Content-Type": asset.mimeType,
         "Accept-Ranges": "bytes",
+        "Cache-Control": cacheControl,
+        "ETag": etag,
       },
     });
   } catch {

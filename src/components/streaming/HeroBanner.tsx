@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { MediaAsset } from "@prisma/client";
 
@@ -32,64 +32,33 @@ export default function HeroBanner({ items, profileName, interval = 10000 }: Her
     return () => clearInterval(timer);
   }, [items.length, interval]);
 
-  const item = items.length > 0 ? items[currentIndex] : null;
+  if (items.length === 0) {
+    return (
+      <div className="relative h-[60vh] min-h-[380px] w-full overflow-hidden sm:h-[70vh] sm:min-h-[500px]">
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-red-900/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0a]/80 to-transparent" />
+      </div>
+    );
+  }
+
+  const slide = items[currentIndex];
+  const nextSlide = items[(currentIndex + 1) % items.length];
 
   return (
     <div className="relative h-[60vh] min-h-[380px] w-full overflow-hidden sm:h-[70vh] sm:min-h-[500px]">
-      {/* Slideshow */}
-      <AnimatePresence mode="popLayout">
-        {items.length > 0 ? (
-          items.map((slide, i) => {
-            const isVideo = slide.type === "VIDEO";
-            const isActive = i === currentIndex;
+      {/* Only render the active slide — the rest stay unmounted */}
+      <SlideRenderer key={slide.mainAsset.id} slide={slide} isActive />
 
-            return (
-              <motion.div
-                key={slide.mainAsset.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: isActive ? 1 : 0 }}
-                transition={{ duration: 1.2, ease: "easeInOut" }}
-                className="absolute inset-0"
-              >
-                {isVideo ? (
-                  <>
-                    {/* Poster fallback while video loads */}
-                    {slide.thumbnailAsset ? (
-                      <img
-                        src={`/api/media/${slide.thumbnailAsset.id}`}
-                        className="absolute inset-0 h-full w-full object-cover"
-                        alt=""
-                      />
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-red-900/20" />
-                    )}
-                    <video
-                      src={`/api/media/${slide.mainAsset.id}`}
-                      className="relative h-full w-full object-cover"
-                      muted
-                      autoPlay
-                      loop
-                      playsInline
-                      preload="auto"
-                    />
-                  </>
-                ) : (
-                  <img
-                    src={`/api/media/${slide.mainAsset.id}`}
-                    alt={slide.title}
-                    className="h-full w-full object-cover"
-                    style={{
-                      objectPosition: `${slide.detailCropX ?? 50}% ${slide.detailCropY ?? 50}%`,
-                    }}
-                  />
-                )}
-              </motion.div>
-            );
-          })
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-red-900/30" />
-        )}
-      </AnimatePresence>
+      {/* Preload the *next* slide's mainAsset image in a hidden <link> so it's
+          ready when we transition without loading everything at once. */}
+      {nextSlide && nextSlide.mainAsset.id !== slide.mainAsset.id && (
+        <link
+          rel="prefetch"
+          href={`/api/media/${nextSlide.mainAsset.id}`}
+          as={nextSlide.type === "VIDEO" ? "video" : "image"}
+        />
+      )}
 
       {/* Gradient: fade from bottom to dark */}
       <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent" />
@@ -100,33 +69,31 @@ export default function HeroBanner({ items, profileName, interval = 10000 }: Her
       <div className="absolute inset-0 flex items-end">
         <div className="w-full px-4 pb-14 sm:px-12 sm:pb-24 lg:px-20">
           <AnimatePresence mode="wait">
-            {item && (
-              <motion.div
-                key={item.mainAsset.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
-              >
-                <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-red-400">
-                  {profileName}&apos;s memories
+            <motion.div
+              key={slide.mainAsset.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+            >
+              <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-red-400">
+                {profileName}&apos;s memories
+              </p>
+
+              <h1 className="mb-3 max-w-3xl text-3xl font-black text-white drop-shadow-lg sm:mb-4 sm:text-4xl md:text-6xl">
+                {slide.title}
+              </h1>
+
+              {slide.description && (
+                <p className="mb-4 max-w-2xl text-sm text-gray-300 line-clamp-2 sm:text-lg">
+                  {slide.description}
                 </p>
+              )}
 
-                <h1 className="mb-3 max-w-3xl text-3xl font-black text-white drop-shadow-lg sm:mb-4 sm:text-4xl md:text-6xl">
-                  {item.title}
-                </h1>
-
-                {item.description && (
-                  <p className="mb-4 max-w-2xl text-sm text-gray-300 line-clamp-2 sm:text-lg">
-                    {item.description}
-                  </p>
-                )}
-
-                {item.dateLabel && (
-                  <p className="text-sm text-gray-400">{item.dateLabel}</p>
-                )}
-              </motion.div>
-            )}
+              {slide.dateLabel && (
+                <p className="text-sm text-gray-400">{slide.dateLabel}</p>
+              )}
+            </motion.div>
           </AnimatePresence>
         </div>
       </div>
@@ -144,6 +111,56 @@ export default function HeroBanner({ items, profileName, interval = 10000 }: Her
             />
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SlideRenderer ────────────────────────────────────────────────────
+// Renders a single slide (image or video).  Only the active one is mounted.
+// Videos get preload="metadata" so they don't download the whole file.
+interface SlideProps {
+  slide: HeroItem;
+  isActive: boolean;
+}
+
+function SlideRenderer({ slide, isActive }: SlideProps) {
+  const isVideo = slide.type === "VIDEO";
+
+  return (
+    <div className="absolute inset-0">
+      {isVideo ? (
+        <>
+          {/* Poster fallback while video loads */}
+          {slide.thumbnailAsset ? (
+            <img
+              src={`/api/media/${slide.thumbnailAsset.id}`}
+              className="absolute inset-0 h-full w-full object-cover"
+              alt=""
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-red-900/20" />
+          )}
+          <video
+            src={`/api/media/${slide.mainAsset.id}`}
+            className="relative h-full w-full object-cover"
+            muted
+            autoPlay
+            loop
+            playsInline
+            preload="metadata"
+          />
+        </>
+      ) : (
+        <img
+          src={`/api/media/${slide.mainAsset.id}`}
+          alt={slide.title}
+          className="h-full w-full object-cover"
+          loading="eager"
+          style={{
+            objectPosition: `${slide.detailCropX ?? 50}% ${slide.detailCropY ?? 50}%`,
+          }}
+        />
       )}
     </div>
   );

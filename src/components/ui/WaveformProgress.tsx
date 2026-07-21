@@ -24,12 +24,17 @@ export default function WaveformProgress({
   const [waveform, setWaveform] = useState<number[]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Generate waveform from audio
+  // Generate waveform from audio — only fetches the first ~2MB via a Range
+  // request instead of downloading the entire file (which could be 500MB+).
   useEffect(() => {
     async function generate() {
       try {
         const ctx = new AudioContext();
-        const res = await fetch(src);
+
+        // Only download the first 2 MB — plenty of samples for a waveform
+        const res = await fetch(src, {
+          headers: { Range: "bytes=0-2097152" },
+        });
         const buffer = await res.arrayBuffer();
         const audioBuffer = await ctx.decodeAudioData(buffer);
         const rawData = audioBuffer.getChannelData(0);

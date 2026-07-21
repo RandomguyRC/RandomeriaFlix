@@ -296,8 +296,11 @@ export default function MemoryModal({ item, items = [], onClose, onNavigate }: M
                   />
                 ) : (
                   <img
-                    src={`/api/media/${item.mainAsset.id}`}
+                    // Use ?w=1600 for the detail view — still high-res but
+                    // far smaller than a 5000px raw photo from a phone.
+                    src={`/api/media/${item.mainAsset.id}?w=1600`}
                     alt={item.title}
+                    loading="lazy"
                     className={isPortrait ? "mx-auto max-h-[60vh] w-auto object-contain" : "w-full object-cover"}
                     style={{
                       maxHeight: "60vh",

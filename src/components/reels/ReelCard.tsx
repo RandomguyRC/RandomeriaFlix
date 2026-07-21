@@ -161,8 +161,9 @@ export default function ReelCard({
           />
         ) : (
           <img
-            src={`/api/media/${reel.mainAsset.id}`}
+            src={`/api/media/${reel.mainAsset.id}?w=800`}
             alt={reel.title}
+            loading="lazy"
             className="h-full w-full object-cover"
           />
         )}
