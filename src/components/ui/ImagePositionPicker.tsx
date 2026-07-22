@@ -24,6 +24,13 @@ interface ImagePositionPickerProps {
   hideZoom?: boolean;
 }
 
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 3;
+
+function clampZoom(value: number) {
+  return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
+}
+
 function computeModalAspect() {
   if (typeof window === "undefined") return 16 / 9;
   const vw = window.innerWidth;
@@ -52,7 +59,7 @@ export default function ImagePositionPicker({
   const [position, setPosition] = useState({ x: currentX, y: currentY });
   const [isDragging, setIsDragging] = useState(false);
   const [aspect, setAspect] = useState(fallbackAspect);
-  const [zoom, setZoom] = useState(currentZoom);
+  const [zoom, setZoom] = useState(() => clampZoom(currentZoom));
   const [imageNatural, setImageNatural] = useState({ w: 0, h: 0 });
 
   useEffect(() => {
@@ -60,6 +67,10 @@ export default function ImagePositionPicker({
       setAspect(computeModalAspect());
     }
   }, [dynamicAspect]);
+
+  useEffect(() => {
+    setZoom(clampZoom(currentZoom));
+  }, [currentZoom, imageSrc]);
 
   const isPortrait = (() => {
     if (mode === "portrait") return true;
@@ -145,18 +156,18 @@ export default function ImagePositionPicker({
         {/* Zoom controls */}
         {!hideZoom && (
         <div className="flex items-center justify-center gap-3 px-6 pt-3">
-          <button onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(1)))}
+          <button onClick={() => setZoom((z) => clampZoom(+(z - 0.1).toFixed(1)))}
             className="rounded-lg bg-gray-800 p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white">
             <ZoomOut className="h-4 w-4" />
           </button>
-          <input type="range" min={0.5} max={3} step={0.05} value={zoom}
-            onChange={(e) => setZoom(Number(e.target.value))}
+          <input type="range" min={MIN_ZOOM} max={MAX_ZOOM} step={0.05} value={zoom}
+            onChange={(e) => setZoom(clampZoom(Number(e.target.value)))}
             className="h-1 w-28 cursor-pointer accent-red-500" />
-          <button onClick={() => setZoom((z) => Math.min(3, +(z + 0.1).toFixed(1)))}
+          <button onClick={() => setZoom((z) => clampZoom(+(z + 0.1).toFixed(1)))}
             className="rounded-lg bg-gray-800 p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white">
             <ZoomIn className="h-4 w-4" />
           </button>
-          <button onClick={() => setZoom(1)}
+          <button onClick={() => setZoom(MIN_ZOOM)}
             className="rounded-lg bg-gray-800 p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white">
             <RotateCcw className="h-4 w-4" />
           </button>

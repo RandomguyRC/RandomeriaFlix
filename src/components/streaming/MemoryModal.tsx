@@ -277,7 +277,7 @@ export default function MemoryModal({ item, items = [], onClose, onNavigate }: M
               </button>
 
               {/* Media area */}
-              <div className="relative flex-shrink-0 overflow-hidden bg-black">
+              <div className={`relative flex-shrink-0 overflow-hidden bg-black ${!isVideo && !isPortrait ? "h-[55vh] max-h-[60vh]" : ""}`}>
                 {isVideo ? (
                   <video
                     ref={videoRef}
@@ -301,11 +301,11 @@ export default function MemoryModal({ item, items = [], onClose, onNavigate }: M
                     src={`/api/media/${item.mainAsset.id}?w=1600`}
                     alt={item.title}
                     loading="lazy"
-                    className={isPortrait ? "mx-auto max-h-[60vh] w-auto object-contain" : "w-full object-cover"}
+                    className={isPortrait ? "mx-auto max-h-[60vh] w-auto object-contain" : "h-full w-full object-cover"}
                     style={{
-                      maxHeight: "60vh",
+                      maxHeight: isPortrait ? "60vh" : undefined,
                       objectPosition: isPortrait ? undefined : `${item.detailCropX ?? 50}% ${item.detailCropY ?? 50}%`,
-                      transform: `scale(${item.detailZoom ?? 1})`,
+                      transform: `scale(${Math.max(1, item.detailZoom ?? 1)})`,
                       transformOrigin: isPortrait ? "center center" : `${item.detailCropX ?? 50}% ${item.detailCropY ?? 50}%`,
                     }}
                     onLoad={(e) => {
