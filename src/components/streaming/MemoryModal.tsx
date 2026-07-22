@@ -49,6 +49,12 @@ export default function MemoryModal({ item, items = [], onClose, onNavigate }: M
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [detectedAspect, setDetectedAspect] = useState<"portrait" | "landscape">("landscape");
+  const [expandedWidth, setExpandedWidth] = useState<number | null>(null);
+
+  // Reset expanded width when switching items
+  useEffect(() => {
+    setExpandedWidth(null);
+  }, [item?.id]);
 
   const hasMusic = !!item?.musicAsset;
   const isVideo = item?.type === "VIDEO";
@@ -265,8 +271,11 @@ export default function MemoryModal({ item, items = [], onClose, onNavigate }: M
               exit={{ opacity: 0, scale: 0.96 }}
               transition={{ type: "spring", damping: 28, stiffness: 320 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative flex w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-gray-900 shadow-2xl"
-              style={{ maxHeight: "85vh" }}
+              className="relative flex w-full flex-col overflow-hidden rounded-2xl bg-gray-900 shadow-2xl"
+              style={{
+                maxHeight: "85vh",
+                maxWidth: expandedWidth || "64rem",
+              }}
             >
               {/* Close button */}
               <button
@@ -310,7 +319,26 @@ export default function MemoryModal({ item, items = [], onClose, onNavigate }: M
                     }}
                     onLoad={(e) => {
                       const img = e.currentTarget;
-                      setDetectedAspect(img.naturalHeight > img.naturalWidth ? "portrait" : "landscape");
+                      const isImgPortrait = img.naturalHeight > img.naturalWidth;
+                      setDetectedAspect(isImgPortrait ? "portrait" : "landscape");
+
+                      // For landscape images (determined the same way isPortrait is),
+                      // expand modal width to show the full image at the fixed height,
+                      // capped so it doesn't overflow the viewport.
+                      const mode = item?.aspectMode ?? "auto";
+                      const isLandscapeResult =
+                        mode === "landscape" || (mode === "auto" && !isImgPortrait);
+                      if (isLandscapeResult) {
+                        const containerHeightPx = window.innerHeight * 0.55;
+                        const aspectRatio = img.naturalWidth / img.naturalHeight;
+                        const naturalWidthAtThisHeight = containerHeightPx * aspectRatio;
+                        const defaultModalWidth = 1024; // max-w-5xl ≈ 1024px
+                        const viewportCap = window.innerWidth * 0.9; // 90vw padding
+
+                        if (naturalWidthAtThisHeight > defaultModalWidth) {
+                          setExpandedWidth(Math.min(naturalWidthAtThisHeight, viewportCap));
+                        }
+                      }
                     }}
                   />
                 )}
