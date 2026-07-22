@@ -15,6 +15,7 @@ model Profile {
   avatarAsset   MediaAsset?   @relation("ProfileAvatar", fields: [avatarAssetId], references: [id], onDelete: SetNull)
   theme         String?
   sortOrder     Int           @default(0)
+  isVisible     Boolean       @default(true)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 

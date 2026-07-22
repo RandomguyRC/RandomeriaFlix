@@ -1,25 +1,33 @@
-"use client";
-
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
+import { prisma } from "@/lib/db";
 
-const profiles = [
-  {
-    slug: "randomeria",
-    name: "Randomeria",
-    color: "from-red-600 to-red-800",
-    ringColor: "hover:ring-red-500",
-  },
-  {
-    slug: "bonus",
-    name: "Bonus",
+function getProfileColors(profile: { slug: string; theme?: string | null }) {
+  if (profile.theme === "red" || profile.slug === "randomeria") {
+    return {
+      color: "from-red-600 to-red-800",
+      shadow: "group-hover:shadow-red-500/20",
+    };
+  }
+
+  return {
     color: "from-violet-600 to-violet-800",
-    ringColor: "hover:ring-violet-500",
-  },
-];
+    shadow: "group-hover:shadow-violet-500/20",
+  };
+}
 
-export default function ProfilesPage() {
+export default async function ProfilesPage() {
+  const profiles = await prisma.profile.findMany({
+    where: { isVisible: true },
+    orderBy: { sortOrder: "asc" },
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      theme: true,
+    },
+  });
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 px-6">
       <motion.div
@@ -37,61 +45,65 @@ export default function ProfilesPage() {
       </motion.div>
 
       <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-12">
-        {profiles.map((profile, index) => (
-          <motion.div
-            key={profile.slug}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{
-              duration: 0.5,
-              delay: index * 0.15,
-              ease: "easeOut",
-            }}
-          >
-            <Link
-              href={`/watch/${profile.slug}`}
-              className="group flex flex-col items-center"
-            >
-              <div
-                className={`relative mb-4 h-32 w-32 overflow-hidden rounded-xl bg-gradient-to-br ${profile.color} shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:shadow-red-500/20 sm:h-40 sm:w-40`}
-              >
-                {/* Avatar placeholder with initial */}
-                <div className="flex h-full w-full items-center justify-center text-5xl font-black text-white/90 sm:text-6xl">
-                  {profile.name.charAt(0)}
-                </div>
+        {profiles.map((profile, index) => {
+          const colors = getProfileColors(profile);
 
-                {/* Hover overlay */}
-                <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors duration-300 group-hover:bg-black/20">
-                  <div className="scale-0 rounded-full bg-white/20 p-3 backdrop-blur-sm transition-transform duration-300 group-hover:scale-100">
-                    <svg
-                      className="h-6 w-6 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
+          return (
+            <motion.div
+              key={profile.id}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{
+                duration: 0.5,
+                delay: index * 0.15,
+                ease: "easeOut",
+              }}
+            >
+              <Link
+                href={`/watch/${profile.slug}`}
+                className="group flex flex-col items-center"
+              >
+                <div
+                  className={`relative mb-4 h-32 w-32 overflow-hidden rounded-xl bg-gradient-to-br ${colors.color} shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl ${colors.shadow} sm:h-40 sm:w-40`}
+                >
+                  {/* Avatar placeholder with initial */}
+                  <div className="flex h-full w-full items-center justify-center text-5xl font-black text-white/90 sm:text-6xl">
+                    {profile.name.charAt(0)}
+                  </div>
+
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors duration-300 group-hover:bg-black/20">
+                    <div className="scale-0 rounded-full bg-white/20 p-3 backdrop-blur-sm transition-transform duration-300 group-hover:scale-100">
+                      <svg
+                        className="h-6 w-6 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <span className="text-lg font-semibold text-gray-300 transition-colors duration-300 group-hover:text-white">
-                {profile.name}
-              </span>
-            </Link>
-          </motion.div>
-        ))}
+                <span className="text-lg font-semibold text-gray-300 transition-colors duration-300 group-hover:text-white">
+                  {profile.name}
+                </span>
+              </Link>
+            </motion.div>
+          );
+        })}
       </div>
     </main>
   );
