@@ -43,14 +43,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Only PDF files allowed" }, { status: 400 });
     }
 
-    // If marking as featured, unmark others for this profile
-    if (isFeatured) {
-      await prisma.book.updateMany({
-        where: { profileId, isFeatured: true },
-        data: { isFeatured: false },
-      });
-    }
-
     const result = await saveUploadedFile(file);
 
     // Get current max sort order

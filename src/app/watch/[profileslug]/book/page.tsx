@@ -50,32 +50,59 @@ export default function BookPage() {
     );
   }
 
-  const featuredBook = books.find((b) => b.isFeatured);
+  const featuredBooks = books.filter((b) => b.isFeatured);
   const otherBooks = books.filter((b) => !b.isFeatured);
 
   return (
     <div className="px-4 py-6 sm:px-12 sm:py-8">
-      {/* Featured Book */}
-      {featuredBook && (
-        <Link
-          href={`/watch/${profileSlug}/book/${featuredBook.id}`}
-          className="mb-8 block cursor-pointer rounded-2xl border border-red-500/20 bg-gradient-to-br from-red-950/20 via-gray-900 to-gray-900 p-5 shadow-2xl transition-all hover:border-red-500/40 hover:shadow-red-500/10 sm:p-8"
-        >
-          <div className="mb-3 flex items-center gap-2 text-red-400">
-            <Star className="h-4 w-4 fill-red-400" />
-            <span className="text-xs font-semibold uppercase tracking-widest">Featured Book</span>
-          </div>
-          <h1 className="mb-2 text-3xl font-bold text-white">{featuredBook.title}</h1>
-          {featuredBook.description && (
-            <p className="mb-3 max-w-2xl text-gray-300">{featuredBook.description}</p>
+      {/* Featured Books */}
+      {featuredBooks.length > 0 && (
+        <div className="mb-8">
+          {featuredBooks.length === 1 ? (
+            <Link
+              href={`/watch/${profileSlug}/book/${featuredBooks[0].id}`}
+              className="block cursor-pointer rounded-2xl border border-red-500/20 bg-gradient-to-br from-red-950/20 via-gray-900 to-gray-900 p-5 shadow-2xl transition-all hover:border-red-500/40 hover:shadow-red-500/10 sm:p-8"
+            >
+              <div className="mb-3 flex items-center gap-2 text-red-400">
+                <Star className="h-4 w-4 fill-red-400" />
+                <span className="text-xs font-semibold uppercase tracking-widest">Featured Book</span>
+              </div>
+              <h1 className="mb-2 text-3xl font-bold text-white">{featuredBooks[0].title}</h1>
+              {featuredBooks[0].description && (
+                <p className="mb-3 max-w-2xl text-gray-300">{featuredBooks[0].description}</p>
+              )}
+              {featuredBooks[0].dateLabel && (
+                <p className="text-sm text-gray-400">{featuredBooks[0].dateLabel}</p>
+              )}
+            </Link>
+          ) : (
+            <>
+              <h2 className="mb-4 text-xl font-semibold text-white">Featured Books</h2>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {featuredBooks.map((book) => (
+                  <Link
+                    key={book.id}
+                    href={`/watch/${profileSlug}/book/${book.id}`}
+                    className="group rounded-xl border border-red-500/20 bg-gradient-to-br from-red-950/20 via-gray-900 to-gray-900 p-5 transition-all hover:border-red-500/40 hover:shadow-red-500/10"
+                  >
+                    <div className="mb-2 flex items-center gap-2 text-red-400">
+                      <Star className="h-4 w-4 fill-red-400" />
+                      <span className="text-xs font-semibold uppercase tracking-widest">Featured</span>
+                    </div>
+                    <h3 className="mb-1 font-semibold text-white">{book.title}</h3>
+                    {book.dateLabel && <p className="text-sm text-gray-400">{book.dateLabel}</p>}
+                    {book.description && (
+                      <p className="mt-2 line-clamp-2 text-sm text-gray-500">{book.description}</p>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            </>
           )}
-          {featuredBook.dateLabel && (
-            <p className="text-sm text-gray-400">{featuredBook.dateLabel}</p>
-          )}
-        </Link>
+        </div>
       )}
 
-      {/* Book cards */}
+      {/* Other book cards */}
       {otherBooks.length > 0 && (
         <div>
           <h2 className="mb-4 text-xl font-semibold text-white">All Books</h2>

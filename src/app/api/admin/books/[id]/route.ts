@@ -14,17 +14,6 @@ export async function PATCH(
   const { id } = await params;
   const body = await request.json();
 
-  // If marking as featured, unmark others for this profile
-  if (body.isFeatured === true) {
-    const book = await prisma.book.findUnique({ where: { id } });
-    if (book) {
-      await prisma.book.updateMany({
-        where: { profileId: book.profileId, isFeatured: true, id: { not: id } },
-        data: { isFeatured: false },
-      });
-    }
-  }
-
   const updated = await prisma.book.update({
     where: { id },
     data: {
