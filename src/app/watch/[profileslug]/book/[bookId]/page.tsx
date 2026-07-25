@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ArrowLeft, BookOpen } from "lucide-react";
+import { Loader2, ArrowLeft, BookOpen, Download } from "lucide-react";
 
 const BookViewer = dynamic(() => import("@/components/book/BookViewer"), {
   ssr: false,
@@ -30,6 +30,9 @@ export default function BookReaderPage() {
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  const pdfUrl = book ? `/api/media/${book.pdfAssetId}` : "";
+  const downloadFileName = book ? `${book.title.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "") || "book"}.pdf` : "book.pdf";
 
   useEffect(() => {
     async function loadBook() {
@@ -90,10 +93,17 @@ export default function BookReaderPage() {
         {book.dateLabel && (
           <p className="text-sm text-gray-400">{book.dateLabel}</p>
         )}
+        <a
+          href={pdfUrl}
+          download={downloadFileName}
+          className="mt-5 inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-500"
+        >
+          <Download className="h-4 w-4" /> Download PDF
+        </a>
       </div>
 
       {/* Book viewer */}
-      <BookViewer key={book.id} pdfUrl={`/api/media/${book.pdfAssetId}`} />
+      <BookViewer key={book.id} pdfUrl={pdfUrl} />
     </div>
   );
 }
