@@ -31,7 +31,7 @@ export async function GET() {
     } catch {}
   }
 
-  const res = await fetch("https://api.spotify.com/v1/me/playlists?limit=50&fields=items(id,name,images,tracks.total)", {
+  const res = await fetch("https://api.spotify.com/v1/me/playlists?limit=50", {
     headers: { Authorization: `Bearer ${token}` },
   });
   const data = await res.json();
