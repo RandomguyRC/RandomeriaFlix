@@ -46,7 +46,7 @@ export async function POST(
   if (trimmed === "/start") {
     await sendTelegramMessage(
       chatId,
-      "Hey! I'll ping you here when your viewer messages you.\n\nSend /chat to switch into live chat mode — anything you type after that gets sent straight to them, just like texting. Send /stop to go back to normal notifications."
+      "Hey! I'll ping you here when Cherry messages you.\n\nSend /chat to switch into live chat mode — anything you type after that gets sent straight to them, just like texting. Send /stop to go back to normal notifications."
     );
     return NextResponse.json({ ok: true });
   }
@@ -55,7 +55,7 @@ export async function POST(
     await setTelegramChatMode(true);
     await sendTelegramMessage(
       chatId,
-      "Chat mode ON. Type anything and it'll be sent to your viewer right away. Send /stop to exit."
+      "Chat mode ON. Type anything and it'll be sent to Cherry right away. Send /stop to exit."
     );
     return NextResponse.json({ ok: true });
   }

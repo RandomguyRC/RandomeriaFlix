@@ -119,7 +119,7 @@ export async function notifyNewMessage(senderRole: Role, content: string) {
     const email = settings[`${prefix}Email`]?.trim();
     if (!chatId && !email) return;
 
-    const senderLabel = senderRole === "admin" ? "Admin" : "Your viewer";
+    const senderLabel = senderRole === "admin" ? "Random" : "Cherry";
     const preview = content.length > PREVIEW_LEN ? content.slice(0, PREVIEW_LEN) + "…" : content;
     const appName = process.env.APP_NAME || "RandomeriaFlix";
 
@@ -134,7 +134,7 @@ export async function notifyNewMessage(senderRole: Role, content: string) {
       const useRawPassthrough = recipientRole === "admin" && (await getTelegramChatMode());
       const telegramText = useRawPassthrough
         ? content
-        : `💬 New message on ${appName}\nFrom: ${senderLabel}\n\n"${preview}"`;
+        : `💬 You have notification from "${senderLabel}" on ${appName}\n\n"${preview}"`;
       tasks.push(sendTelegramMessage(chatId, telegramText));
     }
 
@@ -143,7 +143,7 @@ export async function notifyNewMessage(senderRole: Role, content: string) {
         sendEmail(
           email,
           `New message on ${appName}`,
-          `${senderLabel} sent you a new message:\n\n"${preview}"\n\nOpen ${appName} to reply.`
+          `You have notification from "${senderLabel}".\n\n"${preview}"\n\nOpen ${appName} to reply.`
         )
       );
     }
