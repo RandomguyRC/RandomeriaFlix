@@ -10,6 +10,7 @@ const envSchema = z.object({
 
   // Live chat notifications (all optional — features silently no-op if unset)
   TELEGRAM_BOT_TOKEN: z.string().optional(),
+  TELEGRAM_WEBHOOK_SECRET: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.string().optional(),
   SMTP_USER: z.string().optional(),
@@ -30,6 +31,7 @@ function getEnv() {
     UPLOAD_DIR: process.env.UPLOAD_DIR,
     APP_NAME: process.env.APP_NAME,
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+    TELEGRAM_WEBHOOK_SECRET: process.env.TELEGRAM_WEBHOOK_SECRET,
     SMTP_HOST: process.env.SMTP_HOST,
     SMTP_PORT: process.env.SMTP_PORT,
     SMTP_USER: process.env.SMTP_USER,

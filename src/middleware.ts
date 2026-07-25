@@ -10,9 +10,12 @@ const viewerPaths = ["/profiles", "/watch", "/intro", "/api/media"];
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Allow public paths, Next.js static assets, and API health checks
+  // Allow public paths, Next.js static assets, API health checks, and the
+  // Telegram webhook (Telegram can't send our session cookie — this route
+  // is secured by its own secret path segment + chat-id check instead).
   if (
     publicPaths.includes(pathname) ||
+    pathname.startsWith("/api/telegram/webhook/") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.endsWith(".ico") ||

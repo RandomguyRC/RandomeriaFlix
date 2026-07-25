@@ -4,6 +4,7 @@ import nodemailer from "nodemailer";
 type Role = "admin" | "viewer";
 
 const PREVIEW_LEN = 200;
+const CHAT_MODE_KEY = "telegramAdminChatMode";
 
 // ---- settings helpers -------------------------------------------------
 
@@ -14,9 +15,30 @@ async function getSettings(keys: string[]) {
   return map;
 }
 
+export async function getAdminTelegramChatId(): Promise<string | null> {
+  const settings = await getSettings(["notifyAdminTelegramChatId"]);
+  return settings.notifyAdminTelegramChatId?.trim() || null;
+}
+
+/** Whether the admin has toggled "chat mode" on via /chat in Telegram —
+ * while on, their Telegram bot DM is treated as a live two-way chat client
+ * instead of a one-way notification feed. */
+export async function getTelegramChatMode(): Promise<boolean> {
+  const settings = await getSettings([CHAT_MODE_KEY]);
+  return settings[CHAT_MODE_KEY] === "on";
+}
+
+export async function setTelegramChatMode(on: boolean) {
+  await prisma.siteSetting.upsert({
+    where: { key: CHAT_MODE_KEY },
+    update: { value: on ? "on" : "off" },
+    create: { key: CHAT_MODE_KEY, value: on ? "on" : "off" },
+  });
+}
+
 // ---- telegram -----------------------------------------------------------
 
-async function sendTelegramMessage(chatId: string, text: string) {
+export async function sendTelegramMessage(chatId: string, text: string) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token || !chatId) return;
 
@@ -102,14 +124,20 @@ export async function notifyNewMessage(senderRole: Role, content: string) {
     const appName = process.env.APP_NAME || "RandomeriaFlix";
 
     const tasks: Promise<void>[] = [];
+
     if (chatId) {
-      tasks.push(
-        sendTelegramMessage(
-          chatId,
-          `💬 New message on ${appName}\nFrom: ${senderLabel}\n\n"${preview}"`
-        )
-      );
+      // When the recipient is the admin AND they've flipped on "chat mode"
+      // via the bot (/chat), send the message as-is — no wrapper text — so
+      // it reads exactly like a normal Telegram DM from the viewer, not a
+      // notification. Everyone else (or admin with chat mode off) gets the
+      // original labeled notification format.
+      const useRawPassthrough = recipientRole === "admin" && (await getTelegramChatMode());
+      const telegramText = useRawPassthrough
+        ? content
+        : `💬 New message on ${appName}\nFrom: ${senderLabel}\n\n"${preview}"`;
+      tasks.push(sendTelegramMessage(chatId, telegramText));
     }
+
     if (email) {
       tasks.push(
         sendEmail(

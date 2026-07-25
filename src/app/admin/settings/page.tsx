@@ -355,6 +355,14 @@ export default function SettingsPage() {
           <code className="rounded bg-gray-800 px-1 py-0.5 text-xs">.env</code>.
         </p>
 
+        <div className="mb-6 rounded-lg border border-sky-500/20 bg-sky-900/10 px-4 py-3 text-sm text-sky-200">
+          <span className="font-semibold">Reply from Telegram (admin only):</span> send{" "}
+          <code className="rounded bg-gray-800 px-1 py-0.5 text-xs">/chat</code> to your bot to
+          switch it into live chat mode — after that, anything you type is sent straight to your
+          viewer and their replies show up as normal Telegram messages, not notifications. Send{" "}
+          <code className="rounded bg-gray-800 px-1 py-0.5 text-xs">/stop</code> to exit.
+        </div>
+
         <div className="space-y-6">
           {/* Admin notifications */}
           <div className="rounded-lg border border-gray-800 p-4">
