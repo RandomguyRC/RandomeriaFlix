@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, Loader2, Check, Music, Link, Unlink, Upload, X } from "lucide-react";
+import { Save, Loader2, Check, Music, Link, Unlink, Upload, X, Send, Mail, Bell, BellOff } from "lucide-react";
 
 const DEFAULT_SETTINGS: Record<string, { label: string; type: string; default: string; description: string }> = {
   slideshowInterval: {
@@ -30,6 +30,44 @@ const DEFAULT_SETTINGS: Record<string, { label: string; type: string; default: s
   },
 };
 
+function ToggleSwitch({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors ${
+        checked ? "border-red-500/40 bg-red-900/10" : "border-gray-800 bg-gray-800/50"
+      }`}
+    >
+      <span
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+          checked ? "bg-red-600" : "bg-gray-700"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+            checked ? "translate-x-5" : "translate-x-0.5"
+          }`}
+        />
+      </span>
+      <span className="flex items-center gap-2 text-sm font-medium text-white">
+        {checked ? <Bell className="h-4 w-4 text-red-400" /> : <BellOff className="h-4 w-4 text-gray-500" />}
+        {label}
+      </span>
+    </button>
+  );
+}
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -44,6 +82,16 @@ export default function SettingsPage() {
   const [chatBg, setChatBg] = useState<string | null>(null);
   const [chatBgY, setChatBgY] = useState(50);
   const [uploadingBg, setUploadingBg] = useState(false);
+
+  // Notification settings (Telegram + email, per role)
+  const [notifyAdminEnabled, setNotifyAdminEnabled] = useState(false);
+  const [notifyAdminTelegramChatId, setNotifyAdminTelegramChatId] = useState("");
+  const [notifyAdminEmail, setNotifyAdminEmail] = useState("");
+  const [notifyViewerEnabled, setNotifyViewerEnabled] = useState(false);
+  const [notifyViewerTelegramChatId, setNotifyViewerTelegramChatId] = useState("");
+  const [notifyViewerEmail, setNotifyViewerEmail] = useState("");
+  const [savingNotify, setSavingNotify] = useState(false);
+  const [savedNotify, setSavedNotify] = useState(false);
 
   useEffect(() => {
     // Check URL params for connection status
@@ -97,8 +145,37 @@ export default function SettingsPage() {
         const data = await res.json();
         if (data.chatBackground) setChatBg(`/api/media/${data.chatBackground}`);
         if (data.chatBackgroundY) setChatBgY(Number(data.chatBackgroundY));
+
+        setNotifyAdminEnabled(data.notifyAdminEnabled === "true");
+        setNotifyAdminTelegramChatId(data.notifyAdminTelegramChatId || "");
+        setNotifyAdminEmail(data.notifyAdminEmail || "");
+        setNotifyViewerEnabled(data.notifyViewerEnabled === "true");
+        setNotifyViewerTelegramChatId(data.notifyViewerTelegramChatId || "");
+        setNotifyViewerEmail(data.notifyViewerEmail || "");
       }
     } catch {}
+  }
+
+  async function saveNotifySettings() {
+    setSavingNotify(true);
+    try {
+      await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notifyAdminEnabled: String(notifyAdminEnabled),
+          notifyAdminTelegramChatId,
+          notifyAdminEmail,
+          notifyViewerEnabled: String(notifyViewerEnabled),
+          notifyViewerTelegramChatId,
+          notifyViewerEmail,
+        }),
+      });
+      setSavedNotify(true);
+      setTimeout(() => setSavedNotify(false), 2000);
+    } finally {
+      setSavingNotify(false);
+    }
   }
 
   async function handleChatBgUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -253,6 +330,130 @@ export default function SettingsPage() {
             disabled={uploadingBg}
           />
         </label>
+      </div>
+
+      {/* Notifications Section */}
+      <div className="mt-10 rounded-xl border border-gray-800 bg-gray-900 p-6">
+        <div className="mb-4 flex items-center gap-3">
+          <Send className="h-5 w-5 text-sky-400" />
+          <h2 className="text-lg font-semibold text-white">Chat Notifications</h2>
+        </div>
+        <p className="mb-6 text-sm text-gray-400">
+          Get pinged on Telegram and/or email whenever a new live chat message comes in.
+          Note this is a <span className="text-gray-300">Telegram Chat ID</span>, not a phone
+          number — message{" "}
+          <a
+            href="https://t.me/userinfobot"
+            target="_blank"
+            rel="noreferrer"
+            className="text-sky-400 underline hover:text-sky-300"
+          >
+            @userinfobot
+          </a>{" "}
+          on Telegram to get yours. The bot itself is configured once on the server via{" "}
+          <code className="rounded bg-gray-800 px-1 py-0.5 text-xs">TELEGRAM_BOT_TOKEN</code> in{" "}
+          <code className="rounded bg-gray-800 px-1 py-0.5 text-xs">.env</code>.
+        </p>
+
+        <div className="space-y-6">
+          {/* Admin notifications */}
+          <div className="rounded-lg border border-gray-800 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-white">
+                Notify Admin <span className="text-gray-500 font-normal">(when viewer messages)</span>
+              </h3>
+            </div>
+            <ToggleSwitch
+              checked={notifyAdminEnabled}
+              onChange={setNotifyAdminEnabled}
+              label={notifyAdminEnabled ? "Enabled" : "Disabled"}
+            />
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-400">
+                  <Send className="h-3.5 w-3.5" /> Telegram Chat ID
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 123456789"
+                  value={notifyAdminTelegramChatId}
+                  onChange={(e) => setNotifyAdminTelegramChatId(e.target.value)}
+                  className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-red-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-400">
+                  <Mail className="h-3.5 w-3.5" /> Email
+                </label>
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={notifyAdminEmail}
+                  onChange={(e) => setNotifyAdminEmail(e.target.value)}
+                  className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-red-500 focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Viewer notifications */}
+          <div className="rounded-lg border border-gray-800 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-white">
+                Notify Viewer <span className="text-gray-500 font-normal">(when admin messages)</span>
+              </h3>
+            </div>
+            <p className="mb-3 text-xs text-gray-500">
+              The viewer can't set this themselves — you configure it on their behalf here.
+            </p>
+            <ToggleSwitch
+              checked={notifyViewerEnabled}
+              onChange={setNotifyViewerEnabled}
+              label={notifyViewerEnabled ? "Enabled" : "Disabled"}
+            />
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-400">
+                  <Send className="h-3.5 w-3.5" /> Telegram Chat ID
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 987654321"
+                  value={notifyViewerTelegramChatId}
+                  onChange={(e) => setNotifyViewerTelegramChatId(e.target.value)}
+                  className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-red-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-400">
+                  <Mail className="h-3.5 w-3.5" /> Email
+                </label>
+                <input
+                  type="email"
+                  placeholder="her@example.com"
+                  value={notifyViewerEmail}
+                  onChange={(e) => setNotifyViewerEmail(e.target.value)}
+                  className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-red-500 focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={saveNotifySettings}
+          disabled={savingNotify}
+          className="mt-5 flex items-center gap-2 rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-sky-500 disabled:opacity-50"
+        >
+          {savingNotify ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : savedNotify ? (
+            <Check className="h-4 w-4" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          {savingNotify ? "Saving..." : savedNotify ? "Saved!" : "Save Notification Settings"}
+        </button>
       </div>
 
       {/* Spotify Section */}

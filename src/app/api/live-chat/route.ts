@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { touch, getStatus } from "@/lib/presence";
+import { notifyNewMessage } from "@/lib/notify";
 
 // GET /api/live-chat?after=<ISO timestamp>
 // Returns messages newer than `after`. Omit `after` to get the last 100 messages (initial load).
@@ -81,6 +82,11 @@ export async function POST(request: NextRequest) {
       content,
     },
   });
+
+  // Fire-and-forget: notify the OTHER party via Telegram/email if they have
+  // it configured + enabled. Never awaited so a slow/failed notification
+  // can't delay or break sending the chat message itself.
+  notifyNewMessage(session.role as "admin" | "viewer", content).catch(() => {});
 
   return NextResponse.json({ message });
 }
