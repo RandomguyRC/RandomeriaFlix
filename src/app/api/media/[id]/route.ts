@@ -151,7 +151,7 @@ export async function GET(
 
       return new Response(buffer as unknown as BodyInit, {
         headers: {
-          "Content-Type": asset.mimeType,
+          "Content-Type": "image/jpeg",
           "Cache-Control": cacheControl,
           "ETag": etag,
           "Content-Length": String(buffer.length),

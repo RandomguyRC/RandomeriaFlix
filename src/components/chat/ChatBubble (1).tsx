@@ -90,6 +90,12 @@ export default function ChatBubble({
               {searchQuery ? highlightText(message.text, searchQuery) : message.text}
             </p>
           )}
+
+          {!hasText && !message.attachments?.length && (
+            <p className="text-xs italic text-red-300/70">
+              ⚠️ No content or media found for this message (id: {message.id})
+            </p>
+          )}
           <p className="mt-1 text-right text-[10px] text-white/35">
             {message.dateLabel ? message.dateLabel.split(" ").slice(1).join(" ") : ""}
           </p>

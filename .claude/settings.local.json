@@ -17,7 +17,13 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/watch/randomeria/book)",
       "PowerShell(npm run *)",
       "Bash(npx tsc *)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(grep -oP '^\\\\d{2}/\\\\d{2}/\\\\d{2}' /c/Users/jastr/OneDrive/Desktop/myfiles/cherry/RandomeriaFlix/Photos/_chat.txt)",
+      "Bash(python3 *)",
+      "PowerShell(npx tsx -e \"import { detectSenders } from './src/lib/whatsapp-parser'; const text='[14/08/23, 17:17:32] Cherry 🍒: Recent photo??\\\\n[14/08/23, 17:17:45] Rahul: Waaaaaaat'; console.log\\(JSON.stringify\\(detectSenders\\(text\\)\\)\\);\")",
+      "PowerShell(npx tsx -e \"import { detectSenders } from './src/lib/whatsapp-parser'; const text='‎[14/08/23, 17:16:13] Cherry 🍒: ‎<attached: sticker.webp>\\\\n[14/08/23, 17:17:32] Cherry 🍒: Hello!\\\\n[14/08/23, 17:17:45] Rahul: Hi there\\\\n[14/08/23, 17:17:58] Rahul: How are u'; console.log\\(JSON.stringify\\(detectSenders\\(text\\)\\)\\);\")",
+      "Bash(sqlite3 data/db.sqlite \"SELECT cm.id, cm.body, cm.sortOrder, cm.rawSender, ca.id as att_id, ca.kind as att_kind, ca.assetId FROM chat_message cm LEFT JOIN chat_attachment ca ON ca.messageId = cm.id WHERE cm.body IS NULL OR cm.body = '' LIMIT 30;\")",
+      "Bash(powershell -Command \"if \\(Test-Path 'data/db.sqlite'\\) { Write-Host 'DB exists'; Get-Item 'data/db.sqlite' | Select Length } else { Write-Host 'No db.sqlite' }; Get-ChildItem data/db* -ErrorAction SilentlyContinue | Select Name, Length\")"
     ]
   }
 }

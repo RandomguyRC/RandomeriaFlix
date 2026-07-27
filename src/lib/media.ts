@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { join } from "path";
+import { dirname, join } from "path";
 import { mkdir, writeFile, stat } from "fs/promises";
 import { prisma } from "./db";
 
@@ -8,6 +8,8 @@ const ALLOWED_MIME_TYPES: Record<string, string> = {
   "image/png": "IMAGE",
   "image/webp": "IMAGE",
   "image/gif": "IMAGE",
+  "image/heic": "IMAGE",
+  "image/heif": "IMAGE",
   "video/mp4": "VIDEO",
   "video/webm": "VIDEO",
   "video/quicktime": "VIDEO",
@@ -105,6 +107,39 @@ export async function saveUploadedFile(
   });
 
   return { id: mediaAsset.id, storagePath: filename };
+}
+
+export async function createMediaAssetFromStoredFile({
+  storagePath,
+  originalName,
+  mimeType,
+}: {
+  storagePath: string;
+  originalName: string;
+  mimeType: string;
+}): Promise<{ id: string; storagePath: string; kind: string }> {
+  const filePath = getMediaFilePath(storagePath);
+  const stats = await stat(filePath);
+  const resolvedMime = resolveMimeType(mimeType, originalName);
+  const kind = getMediaKind(resolvedMime, originalName);
+
+  const mediaAsset = await prisma.mediaAsset.create({
+    data: {
+      kind,
+      originalName,
+      mimeType: resolvedMime,
+      sizeBytes: stats.size,
+      storagePath,
+    },
+  });
+
+  return { id: mediaAsset.id, storagePath, kind };
+}
+
+export async function ensureMediaDirectory(storagePath: string): Promise<string> {
+  const filePath = getMediaFilePath(storagePath);
+  await mkdir(dirname(filePath), { recursive: true });
+  return filePath;
 }
 
 export function getMediaFilePath(storagePath: string): string {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Virtuoso, VirtuosoHandle } from "react-virtuoso";
@@ -8,29 +8,24 @@ import ChatBubble from "./ChatBubble";
 import DateSeparator from "./DateSeparator";
 import SearchBar from "./SearchBar";
 import ChatCalendar from "./ChatCalendar";
+import type { ChatMessageData } from "./types";
 
-interface ChatMessage {
-  id: string;
-  sortOrder: number;
-  dateLabel: string | null;
-  sender: string;
-  senderType: string;
-  text: string;
-}
+const PAGE_SIZE = 100;
 
 export default function ChatPageComponent() {
   const params = useParams();
   const profileSlug = params.profileslug as string;
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [matchIndex, setMatchIndex] = useState(0);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const [bgImage, setBgImage] = useState<string | null>(null);
   const [bgY, setBgY] = useState(50);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasOlder, setHasOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [firstItemIndex, setFirstItemIndex] = useState(100000);
+  const [totalCount, setTotalCount] = useState(0);
 
   // Date calendar state
   const [showCalendar, setShowCalendar] = useState(false);
@@ -40,16 +35,19 @@ export default function ChatPageComponent() {
     async function load() {
       try {
         const [chatRes, datesRes] = await Promise.all([
-          fetch(`/api/chat?profileSlug=${profileSlug}&page=0&limit=100`),
+          fetch(`/api/chat?profileSlug=${profileSlug}&limit=${PAGE_SIZE}`),
           fetch(`/api/chat/dates?profileSlug=${profileSlug}`),
         ]);
         if (chatRes.ok) {
           const data = await chatRes.json();
-          setMessages(data.messages || []);
-          setHasMore(data.hasMore);
-          setPage(0);
+          const initialMessages = data.messages || [];
+          setMessages(initialMessages);
+          setHasOlder(Boolean(data.hasOlder));
+          setTotalCount(data.totalCount || initialMessages.length);
+          setFirstItemIndex(Math.max(0, (data.totalCount || initialMessages.length) - initialMessages.length));
           if (data.chatBackground) setBgImage(`/api/media/${data.chatBackground}`);
           if (data.chatBackgroundY) setBgY(Number(data.chatBackgroundY));
+          requestAnimationFrame(() => virtuosoRef.current?.scrollToIndex({ index: initialMessages.length - 1, align: "end" }));
         }
         if (datesRes.ok) {
           const datesData = await datesRes.json();
@@ -61,64 +59,59 @@ export default function ChatPageComponent() {
     load();
   }, [profileSlug]);
 
-  // Find matching message indices for search
+  // Find matching message indices for search. This searches only the loaded virtualized window.
   const matchIndices = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
     const indices: number[] = [];
     messages.forEach((m, i) => {
-      if (m.text.toLowerCase().includes(q)) indices.push(i);
+      if ((m.text || "").toLowerCase().includes(q)) indices.push(i);
     });
     return indices;
   }, [searchQuery, messages]);
 
   const matchCount = matchIndices.length;
-  const matchCountDisplay = matchCount;
 
-  // Jump to a specific match
   function jumpToMatch(idx: number) {
     if (matchIndices.length === 0 || !virtuosoRef.current) return;
     const targetIndex = matchIndices[idx % matchIndices.length];
     setMatchIndex(idx % matchIndices.length);
-    virtuosoRef.current.scrollToIndex({ index: targetIndex, align: "center" });
+    virtuosoRef.current.scrollToIndex({ index: targetIndex + firstItemIndex, align: "center" });
   }
 
-  async function loadMore() {
-    if (!hasMore || loadingMore) return;
-    setLoadingMore(true);
+  const loadOlder = useCallback(async () => {
+    if (!hasOlder || loadingOlder || messages.length === 0) return;
+    setLoadingOlder(true);
     try {
-      const nextPage = page + 1;
-      const res = await fetch(`/api/chat?profileSlug=${profileSlug}&page=${nextPage}&limit=100`);
+      const oldest = messages[0].sortOrder;
+      const res = await fetch(`/api/chat?profileSlug=${profileSlug}&beforeSortOrder=${oldest}&limit=${PAGE_SIZE}`);
       if (res.ok) {
         const data = await res.json();
-        setMessages((prev) => [...prev, ...(data.messages || [])]);
-        setHasMore(data.hasMore);
-        setPage(nextPage);
+        const olderMessages: ChatMessageData[] = data.messages || [];
+        if (olderMessages.length > 0) {
+          setFirstItemIndex((index) => Math.max(0, index - olderMessages.length));
+          setMessages((prev) => [...olderMessages, ...prev]);
+        }
+        setHasOlder(Boolean(data.hasOlder));
       }
     } catch {}
-    setLoadingMore(false);
-  }
+    setLoadingOlder(false);
+  }, [hasOlder, loadingOlder, messages, profileSlug]);
 
   function jumpToDate(dateStr: string) {
-    console.log("[Chat] jumpToDate called with:", JSON.stringify(dateStr));
-    console.log("[Chat] First 3 message dateLabels:", messages.slice(0, 3).map((m) => m.dateLabel));
-
-    // Try multiple matching strategies
     const idx = messages.findIndex((m) => {
       if (!m.dateLabel) return false;
-      const msgDate = m.dateLabel.trim().split(/[\s,]+/)[0]; // "14/08/23"
-      // Try exact match
+      const msgDate = m.dateLabel.trim().split(/[\s,]+/)[0];
       if (msgDate === dateStr) return true;
-      // Try substring (calendar might return "14/8/23" vs message "14/08/23")
       if (msgDate.indexOf(dateStr) !== -1 || dateStr.indexOf(msgDate) !== -1) return true;
       return false;
     });
 
-    console.log("[Chat] Found index:", idx);
-
     if (idx >= 0 && virtuosoRef.current) {
       setMatchIndex(idx);
-      virtuosoRef.current.scrollToIndex({ index: idx, align: "start" });
+      virtuosoRef.current.scrollToIndex({ index: idx + firstItemIndex, align: "start" });
+    } else if (hasOlder) {
+      loadOlder();
     }
     setShowCalendar(false);
   }
@@ -148,29 +141,30 @@ export default function ChatPageComponent() {
   }
 
   return (
-    <div className="mx-auto max-w-[950px] flex h-[calc(100vh-56px)] flex-col relative"
+    <div className="relative flex h-[calc(100vh-56px)] w-full max-w-none flex-col overflow-hidden"
       style={{
         background: bgImage
           ? `url(${bgImage}) center ${bgY}%/cover no-repeat`
-          : "#0b0e14",
+          : "#0b141a",
       }}
     >
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px]" />
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px]" />
 
       {/* Header */}
-      <div className="sticky top-14 z-10 relative border-b border-white/[0.06] bg-[#1f2937]/80 backdrop-blur-xl">
+      <div className="sticky top-14 z-10 relative border-b border-white/[0.06] bg-[#202c33]/95 backdrop-blur-xl">
         <div className="flex items-center gap-2 px-3 py-3 sm:gap-4 sm:px-6 sm:py-4">
           <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-pink-500 to-rose-600 ring-2 ring-white/10 sm:h-10 sm:w-10">
             <span className="flex h-full w-full items-center justify-center text-sm font-bold text-white">C</span>
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-sm font-semibold text-white sm:text-base">Cherry 🍒</h2>
-            <p className="text-xs text-gray-400">Online</p>
+            <p className="text-xs text-gray-400">{totalCount.toLocaleString()} messages · latest at bottom</p>
           </div>
+          {searchQuery && <span className="hidden text-xs text-gray-400 md:inline">Searching loaded messages</span>}
           <SearchBar
             query={searchQuery}
             onChange={(q) => { setSearchQuery(q); setMatchIndex(0); }}
-            matchCount={matchCountDisplay}
+            matchCount={matchCount}
             currentIndex={matchIndex}
             onNext={() => jumpToMatch(matchIndex + 1)}
             onPrev={() => jumpToMatch(matchIndex - 1)}
@@ -192,32 +186,34 @@ export default function ChatPageComponent() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-hidden pt-4 pb-6 relative">
+      <div className="relative flex-1 overflow-hidden py-3">
         <Virtuoso
           ref={virtuosoRef}
-          totalCount={messages.length}
-          overscan={30}
-          endReached={() => { if (hasMore && !loadingMore) loadMore(); }}
-          itemContent={(index) => {
-            const msg = messages[index];
-            const prev = index > 0 ? messages[index - 1] : null;
+          firstItemIndex={firstItemIndex}
+          data={messages}
+          overscan={24}
+          followOutput="smooth"
+          startReached={loadOlder}
+          initialTopMostItemIndex={messages.length - 1}
+          itemContent={(index, msg) => {
+            const localIndex = index - firstItemIndex;
+            const prev = localIndex > 0 ? messages[localIndex - 1] : null;
             const isConsecutive = prev
               ? prev.sender === msg.sender &&
                 prev.dateLabel?.split(" ")[0] === msg.dateLabel?.split(" ")[0]
               : false;
             const showDate =
-              index === 0 ||
+              localIndex === 0 ||
               (prev && prev.dateLabel?.split(" ")[0] !== msg.dateLabel?.split(" ")[0]);
 
-            // Check if this message matches the search
-            const isMatch = searchQuery.trim() && msg.text.toLowerCase().includes(searchQuery.toLowerCase());
+            const isMatch = Boolean(searchQuery.trim() && (msg.text || "").toLowerCase().includes(searchQuery.toLowerCase()));
 
             return (
-              <div key={msg.id} className="px-4 sm:px-6">
+              <div key={msg.id} className="px-2 sm:px-6 lg:px-10 xl:px-14">
                 {showDate && <DateSeparator date={msg.dateLabel?.split(" ")[0] || ""} />}
                 <ChatBubble
                   message={msg}
-                  isConsecutive={isConsecutive && !showDate}
+                  isConsecutive={Boolean(isConsecutive && !showDate)}
                   searchQuery={searchQuery}
                   isHighlighted={isMatch}
                 />
@@ -225,10 +221,12 @@ export default function ChatPageComponent() {
             );
           }}
           components={{
-            Footer: () => loadingMore ? (
+            Header: () => loadingOlder ? (
               <div className="flex justify-center py-4">
                 <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
               </div>
+            ) : hasOlder ? (
+              <div className="py-2 text-center text-xs text-gray-400">Scroll up to load older messages</div>
             ) : null,
           }}
         />
