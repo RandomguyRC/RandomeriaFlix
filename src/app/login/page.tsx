@@ -1,15 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { Heart, Lock } from "lucide-react";
+
+interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  targetY: number;
+  scale: number;
+  duration: number;
+}
 
 export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [particles, setParticles] = useState<Particle[]>([]);
   const router = useRouter();
+
+  // Generate particles only on client-side to avoid SSR window reference errors
+  useEffect(() => {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const newParticles: Particle[] = Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      x: Math.random() * width,
+      y: Math.random() * height,
+      targetY: Math.random() * height,
+      scale: Math.random() * 0.5 + 0.5,
+      duration: Math.random() * 10 + 10,
+    }));
+    setParticles(newParticles);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,25 +71,23 @@ export default function LoginPage() {
       {/* Romantic background with gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#8B0000]/20 via-[#050304] to-[#120A0B]" />
       
-      {/* Animated particles/hearts in background */}
+      {/* Animated particles/hearts in background - client only */}
       <div className="absolute inset-0 overflow-hidden">
-        {[...Array(20)].map((_, i) => (
+        {particles.map((particle) => (
           <motion.div
-            key={i}
+            key={particle.id}
             className="absolute h-1 w-1 rounded-full bg-[#8B0000]/30"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-            }}
             initial={{ 
-              scale: Math.random() * 0.5 + 0.5,
+              x: particle.x, 
+              y: particle.y,
+              scale: particle.scale,
             }}
             animate={{
-              y: ["0%", `${Math.random() * 100 - 50}vh`],
+              y: [particle.y, particle.targetY],
               opacity: [0.3, 0.7, 0.3],
             }}
             transition={{
-              duration: Math.random() * 10 + 10,
+              duration: particle.duration,
               repeat: Infinity,
               ease: "linear",
             }}

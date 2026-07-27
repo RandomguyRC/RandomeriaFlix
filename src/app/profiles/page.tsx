@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db";
 import ProfileCardGrid from "@/components/profiles/ProfileCardGrid";
-import { motion } from "motion/react";
 
 export default async function ProfilesPage() {
   const profiles = await prisma.profile.findMany({
