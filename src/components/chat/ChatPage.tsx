@@ -69,6 +69,30 @@ export default function ChatPageComponent() {
   const firstItemIndexRef = useRef(firstItemIndex);
   firstItemIndexRef.current = firstItemIndex;
 
+  // Virtuoso's `followOutput` (auto-scroll-to-bottom for new messages) and
+  // `initialTopMostItemIndex` (used to position a freshly-remounted list on
+  // a jump target) fight each other: shortly after a remount, followOutput
+  // re-checks the list and — thinking it should stick to the end — smooth-
+  // scrolls straight back to the bottom, undoing the jump entirely. That's
+  // why every date/search/media jump appeared to "snap back to the bottom".
+  // We suppress followOutput for a short window around every deliberate
+  // jump so the requested position actually sticks; it re-arms afterward so
+  // new incoming messages still auto-follow normally while at the bottom.
+  const suppressFollowRef = useRef(false);
+  const suppressFollowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressFollowOutput = useCallback((ms = 1000) => {
+    suppressFollowRef.current = true;
+    if (suppressFollowTimeoutRef.current) clearTimeout(suppressFollowTimeoutRef.current);
+    suppressFollowTimeoutRef.current = setTimeout(() => {
+      suppressFollowRef.current = false;
+    }, ms);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (suppressFollowTimeoutRef.current) clearTimeout(suppressFollowTimeoutRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     async function load() {
       try {
@@ -113,6 +137,7 @@ export default function ChatPageComponent() {
   // window it just scrolls; otherwise it fetches a fresh window centered on
   // it (via aroundSortOrder) and remounts Virtuoso already positioned there.
   const jumpToSortOrder = useCallback(async (target: number, persist = false) => {
+    suppressFollowOutput();
     const idx = messagesRef.current.findIndex((m) => m.sortOrder === target);
     if (idx >= 0) {
       virtuosoRef.current?.scrollToIndex({ index: idx + firstItemIndexRef.current, align: "center", behavior: "smooth" });
@@ -144,7 +169,7 @@ export default function ChatPageComponent() {
       }
     } catch {}
     setJumping(false);
-  }, [profileSlug, flashHighlight]);
+  }, [profileSlug, flashHighlight, suppressFollowOutput]);
 
   const loadOlder = useCallback(async () => {
     if (!hasOlder || loadingOlder || messages.length === 0) return;
@@ -371,7 +396,7 @@ export default function ChatPageComponent() {
           firstItemIndex={firstItemIndex}
           data={messages}
           overscan={24}
-          followOutput={(isAtBottom) => (isAtBottom ? "smooth" : false)}
+          followOutput={(isAtBottom) => (!suppressFollowRef.current && isAtBottom ? "smooth" : false)}
           startReached={loadOlder}
           endReached={loadNewer}
           atBottomStateChange={setAtBottom}
