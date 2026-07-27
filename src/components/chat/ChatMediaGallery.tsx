@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { X, FileText, Music, Loader2, ArrowRight, Play, Image as ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -134,7 +135,7 @@ export default function ChatMediaGallery({
     }
   }
 
-  return (
+  return createPortal(
     <>
       <AnimatePresence>
         <motion.div
@@ -348,7 +349,8 @@ export default function ChatMediaGallery({
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </>,
+    document.body
   );
 }
 

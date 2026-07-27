@@ -360,7 +360,7 @@ export default function ChatPageComponent() {
           firstItemIndex={firstItemIndex}
           data={messages}
           overscan={24}
-          followOutput={(isAtBottom) => (isAtBottom ? "smooth" : false)}
+          followOutput={(isAtBottom) => (pendingScroll ? false : isAtBottom ? "smooth" : false)}
           startReached={loadOlder}
           endReached={loadNewer}
           atBottomStateChange={setAtBottom}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ChevronRight, X, CalendarDays } from "lucide-react";
 
@@ -105,7 +106,7 @@ export default function ChatCalendar({ activeDates, onSelectDate, onClose }: Cha
     return year < newestMonth.getFullYear() || (year === newestMonth.getFullYear() && month < newestMonth.getMonth());
   }
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <motion.div
         key="calendar-backdrop"
@@ -236,6 +237,7 @@ export default function ChatCalendar({ activeDates, onSelectDate, onClose }: Cha
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
