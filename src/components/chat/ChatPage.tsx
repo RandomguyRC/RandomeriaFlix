@@ -38,8 +38,16 @@ export default function ChatPageComponent() {
   const [jumping, setJumping] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
 
-  // Jump-to-message support (search + calendar both funnel through this)
-  const [pendingScroll, setPendingScroll] = useState<{ sortOrder: number; persist: boolean } | null>(null);
+  // Jump-to-message support (search + calendar both funnel through this).
+  // Virtuoso's `initialTopMostItemIndex` only takes effect at mount time —
+  // to reposition it onto an unrelated window (not a simple "prepend older
+  // items" extension of the current one) we bump `listWindowKey` to force a
+  // clean remount, already positioned via `initialTopMostItemIndex`, instead
+  // of mounting the new window then fighting Virtuoso's own internal
+  // position-tracking with an imperative scrollToIndex call.
+  type ScrollTarget = number | { index: number; align?: "start" | "center" | "end"; behavior?: "auto" | "smooth" };
+  const [listWindowKey, setListWindowKey] = useState(0);
+  const [initialTopMostItemIndex, setInitialTopMostItemIndex] = useState<ScrollTarget>(0);
   const [highlightSortOrder, setHighlightSortOrder] = useState<number | null>(null);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -75,10 +83,11 @@ export default function ChatPageComponent() {
           setHasOlder(Boolean(data.hasOlder));
           setHasNewer(Boolean(data.hasNewer));
           setTotalCount(data.totalCount || initialMessages.length);
-          setFirstItemIndex(Math.max(0, (data.totalCount || initialMessages.length) - initialMessages.length));
+          const fii = Math.max(0, (data.totalCount || initialMessages.length) - initialMessages.length);
+          setFirstItemIndex(fii);
+          setInitialTopMostItemIndex({ index: fii + initialMessages.length - 1, align: "end" });
           if (data.chatBackground) setBgImage(`/api/media/${data.chatBackground}`);
           if (data.chatBackgroundY) setBgY(Number(data.chatBackgroundY));
-          requestAnimationFrame(() => virtuosoRef.current?.scrollToIndex({ index: initialMessages.length - 1, align: "end" }));
         }
         if (datesRes.ok) {
           const datesData = await datesRes.json();
@@ -102,7 +111,7 @@ export default function ChatPageComponent() {
   // The single entry point for "go to this message", used by both calendar
   // jumps and search navigation. If the message is already in the loaded
   // window it just scrolls; otherwise it fetches a fresh window centered on
-  // it (via aroundSortOrder) and scrolls once that window has rendered.
+  // it (via aroundSortOrder) and remounts Virtuoso already positioned there.
   const jumpToSortOrder = useCallback(async (target: number, persist = false) => {
     const idx = messagesRef.current.findIndex((m) => m.sortOrder === target);
     if (idx >= 0) {
@@ -116,27 +125,26 @@ export default function ChatPageComponent() {
       if (res.ok) {
         const data = await res.json();
         const win: ChatMessageData[] = data.messages || [];
+        const newFirstItemIndex = Math.max(0, data.olderCount ?? 0);
+        const winIdx = win.findIndex((m) => m.sortOrder === target);
         setMessages(win);
-        setFirstItemIndex(Math.max(0, data.olderCount ?? 0));
+        setFirstItemIndex(newFirstItemIndex);
         setHasOlder(Boolean(data.hasOlder));
         setHasNewer(Boolean(data.hasNewer));
         if (data.totalCount) setTotalCount(data.totalCount);
-        setPendingScroll({ sortOrder: target, persist });
+        // This window is unrelated to whatever was previously loaded, so
+        // remount Virtuoso already positioned on the target rather than
+        // scrolling it there after the fact.
+        setInitialTopMostItemIndex({
+          index: newFirstItemIndex + (winIdx >= 0 ? winIdx : Math.max(0, win.length - 1)),
+          align: "center",
+        });
+        setListWindowKey((k) => k + 1);
+        flashHighlight(target, persist);
       }
     } catch {}
     setJumping(false);
   }, [profileSlug, flashHighlight]);
-
-  // Fires once a jumped-to window has actually rendered with the target message in it.
-  useEffect(() => {
-    if (!pendingScroll) return;
-    const idx = messages.findIndex((m) => m.sortOrder === pendingScroll.sortOrder);
-    if (idx >= 0) {
-      virtuosoRef.current?.scrollToIndex({ index: idx + firstItemIndex, align: "center" });
-      flashHighlight(pendingScroll.sortOrder, pendingScroll.persist);
-      setPendingScroll(null);
-    }
-  }, [messages, firstItemIndex, pendingScroll, flashHighlight]);
 
   const loadOlder = useCallback(async () => {
     if (!hasOlder || loadingOlder || messages.length === 0) return;
@@ -186,12 +194,14 @@ export default function ChatPageComponent() {
       if (res.ok) {
         const data = await res.json();
         const latest: ChatMessageData[] = data.messages || [];
+        const newFirstItemIndex = Math.max(0, (data.totalCount || latest.length) - latest.length);
         setMessages(latest);
         setTotalCount(data.totalCount || latest.length);
-        setFirstItemIndex(Math.max(0, (data.totalCount || latest.length) - latest.length));
+        setFirstItemIndex(newFirstItemIndex);
         setHasOlder(Boolean(data.hasOlder));
         setHasNewer(false);
-        requestAnimationFrame(() => virtuosoRef.current?.scrollToIndex({ index: latest.length - 1, align: "end" }));
+        setInitialTopMostItemIndex({ index: newFirstItemIndex + latest.length - 1, align: "end" });
+        setListWindowKey((k) => k + 1);
       }
     } catch {}
     setJumping(false);
@@ -356,16 +366,17 @@ export default function ChatPageComponent() {
           </div>
         )}
         <Virtuoso
+          key={listWindowKey}
           ref={virtuosoRef}
           firstItemIndex={firstItemIndex}
           data={messages}
           overscan={24}
-          followOutput={(isAtBottom) => (pendingScroll ? false : isAtBottom ? "smooth" : false)}
+          followOutput={(isAtBottom) => (isAtBottom ? "smooth" : false)}
           startReached={loadOlder}
           endReached={loadNewer}
           atBottomStateChange={setAtBottom}
           atBottomThreshold={80}
-          initialTopMostItemIndex={messages.length - 1}
+          initialTopMostItemIndex={initialTopMostItemIndex}
           itemContent={(index, msg) => {
             const localIndex = index - firstItemIndex;
             const prev = localIndex > 0 ? messages[localIndex - 1] : null;
