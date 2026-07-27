@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import ProfileCardGrid from "@/components/profiles/ProfileCardGrid";
+import { motion } from "motion/react";
 
 export default async function ProfilesPage() {
   const profiles = await prisma.profile.findMany({
@@ -14,17 +15,25 @@ export default async function ProfilesPage() {
   });
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 px-6">
-      <div className="mb-16 text-center">
-        <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
-          Who is watching?
-        </h1>
-        <p className="mt-4 text-lg text-gray-400">
-          Select a profile to continue
-        </p>
-      </div>
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#050304] px-6">
+      {/* Background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#050304] via-[#120A0B] to-[#8B0000]/15" />
+      
+      {/* Radial glow */}
+      <div className="absolute left-1/2 top-1/3 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#8B0000]/10 blur-[100px]" />
 
-      <ProfileCardGrid profiles={profiles} />
+      <div className="relative z-10">
+        <div className="mb-16 text-center">
+          <h1 className="mb-4 font-['Playfair_Display'] text-5xl font-bold tracking-tight text-white sm:text-6xl md:text-7xl">
+            Who is reminiscing?
+          </h1>
+          <p className="font-['Outfit'] text-lg text-[#A39294] sm:text-xl">
+            Select a profile to continue your journey
+          </p>
+        </div>
+
+        <ProfileCardGrid profiles={profiles} />
+      </div>
     </main>
   );
 }
