@@ -8,6 +8,7 @@ import ChatBubble from "./ChatBubble";
 import DateSeparator from "./DateSeparator";
 import SearchBar from "./SearchBar";
 import ChatCalendar from "./ChatCalendar";
+import ChatMediaGallery from "./ChatMediaGallery";
 import type { ChatMessageData } from "./types";
 
 const PAGE_SIZE = 100;
@@ -44,6 +45,7 @@ export default function ChatPageComponent() {
 
   // Date calendar state
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showMediaGallery, setShowMediaGallery] = useState(false);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [dateAnchors, setDateAnchors] = useState<Record<string, number>>({});
 
@@ -295,13 +297,19 @@ export default function ChatPageComponent() {
           added a phantom gap above it. */}
       <div className="relative z-20 flex-shrink-0 border-b border-white/[0.06] bg-[#202c33]/95 backdrop-blur-xl">
         <div className="flex items-center gap-2 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-3.5">
-          <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-pink-500 to-rose-600 ring-2 ring-white/10 sm:h-10 sm:w-10">
-            <span className="flex h-full w-full items-center justify-center text-sm font-bold text-white">C</span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-sm font-semibold text-white sm:text-base">Cherry 🍒</h2>
-            <p className="truncate text-xs text-gray-400">{totalCount.toLocaleString()} messages · latest at bottom</p>
-          </div>
+          <button
+            onClick={() => setShowMediaGallery(true)}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-xl py-1 text-left transition-colors hover:bg-white/5 sm:gap-3"
+            aria-label="View shared media and docs"
+          >
+            <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-pink-500 to-rose-600 ring-2 ring-white/10 sm:h-10 sm:w-10">
+              <span className="flex h-full w-full items-center justify-center text-sm font-bold text-white">C</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate text-sm font-semibold text-white sm:text-base">Cherry 🍒</h2>
+              <p className="truncate text-xs text-gray-400">{totalCount.toLocaleString()} messages · tap for media &amp; docs</p>
+            </div>
+          </button>
 
           <SearchBar
             query={searchQuery}
@@ -315,23 +323,25 @@ export default function ChatPageComponent() {
             onClose={closeSearch}
           />
 
-          <div className="relative flex-shrink-0">
-            <button onClick={() => setShowCalendar((v) => !v)}
-              className={`rounded-full p-2 transition-colors hover:bg-white/5 hover:text-white ${showCalendar ? "bg-white/5 text-white" : "text-gray-400"}`}
-              aria-label="Jump to date">
-              <Calendar className="h-5 w-5" />
-            </button>
-            {showCalendar && (
-              <>
-                <div className="fixed inset-0 z-20" onClick={() => setShowCalendar(false)} />
-                <ChatCalendar
-                  activeDates={availableDates}
-                  onSelectDate={jumpToDate}
-                  onClose={() => setShowCalendar(false)}
-                />
-              </>
-            )}
-          </div>
+          <button onClick={() => setShowCalendar((v) => !v)}
+            className={`flex-shrink-0 rounded-full p-2 transition-colors hover:bg-white/5 hover:text-white ${showCalendar ? "bg-white/5 text-white" : "text-gray-400"}`}
+            aria-label="Jump to date">
+            <Calendar className="h-5 w-5" />
+          </button>
+          {showCalendar && (
+            <ChatCalendar
+              activeDates={availableDates}
+              onSelectDate={jumpToDate}
+              onClose={() => setShowCalendar(false)}
+            />
+          )}
+          {showMediaGallery && (
+            <ChatMediaGallery
+              profileSlug={profileSlug}
+              onGoToMessage={(sortOrder) => jumpToSortOrder(sortOrder, true)}
+              onClose={() => setShowMediaGallery(false)}
+            />
+          )}
         </div>
       </div>
 

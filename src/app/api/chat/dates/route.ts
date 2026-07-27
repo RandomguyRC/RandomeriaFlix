@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { readSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
+// dateLabel is stored as "DD/MM/YY HH:MM[:SS]" (whatever WhatsApp exported).
+// Turn the date part into a sortable number so chronological order doesn't
+// depend on string comparison (which breaks because "1/12/24" < "9/01/24"
+// lexicographically even though September comes before December).
+function dateSortKey(datePart: string): number {
+  const [ddRaw, mmRaw, yyRaw] = datePart.split("/");
+  const dd = parseInt(ddRaw, 10) || 0;
+  const mm = parseInt(mmRaw, 10) || 0;
+  let yy = parseInt(yyRaw, 10) || 0;
+  if (yy < 100) yy += 2000;
+  return yy * 10000 + mm * 100 + dd;
+}
+
 export async function GET(request: NextRequest) {
   const session = await readSession();
   if (!session) {
@@ -29,30 +42,36 @@ export async function GET(request: NextRequest) {
   });
 
   if (!chatImport) {
-    return NextResponse.json({ dates: [] });
+    return NextResponse.json({ dates: [], anchors: {} });
   }
 
-  // Get all unique date labels from ALL messages (not just paginated)
+  // Get date + sortOrder for ALL messages (not just the paginated window) so
+  // we can build both the list of active dates and a "jump anchor" — the
+  // sortOrder of the first message on that date — for each one.
   const allMessages = await prisma.chatMessage.findMany({
     where: { importId: chatImport.id },
-    select: { dateLabel: true },
+    select: { dateLabel: true, sortOrder: true },
     orderBy: { sortOrder: "asc" },
   });
 
   const dateSet = new Set<string>();
+  const anchors: Record<string, number> = {};
+
   for (const msg of allMessages) {
-    if (msg.dateLabel) {
-      // Extract date part (DD/MM/YY)
-      const datePart = msg.dateLabel.split(" ")[0];
-      if (datePart) dateSet.add(datePart);
-    }
+    if (!msg.dateLabel) continue;
+    const datePart = msg.dateLabel.split(" ")[0];
+    if (!datePart) continue;
+    dateSet.add(datePart);
+    // Messages are already ordered ascending by sortOrder, so the first
+    // time we see a date is the earliest message on that date.
+    if (anchors[datePart] === undefined) anchors[datePart] = msg.sortOrder;
   }
 
-  // Also return total message count
-  const totalCount = allMessages.length;
+  const dates = Array.from(dateSet).sort((a, b) => dateSortKey(a) - dateSortKey(b));
 
   return NextResponse.json({
-    dates: Array.from(dateSet).sort(),
-    totalMessages: totalCount,
+    dates,
+    anchors,
+    totalMessages: allMessages.length,
   });
 }
