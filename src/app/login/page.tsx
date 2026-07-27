@@ -52,13 +52,15 @@ export default function LoginPage() {
           <motion.div
             key={i}
             className="absolute h-1 w-1 rounded-full bg-[#8B0000]/30"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
             initial={{ 
-              x: Math.random() * window.innerWidth, 
-              y: Math.random() * window.innerHeight,
               scale: Math.random() * 0.5 + 0.5,
             }}
             animate={{
-              y: [null, Math.random() * window.innerHeight],
+              y: ["0%", `${Math.random() * 100 - 50}vh`],
               opacity: [0.3, 0.7, 0.3],
             }}
             transition={{
