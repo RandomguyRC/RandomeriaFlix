@@ -2,14 +2,34 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Send, Smile, Check, CheckCheck } from "lucide-react";
+import { Send, Smile, Check, CheckCheck, Phone, Video, PhoneMissed, X } from "lucide-react";
+import CallModal from "./CallModal";
+import AttachmentMenu, { type SentAttachmentMessage } from "./AttachmentMenu";
+import VoiceRecorder from "./VoiceRecorder";
+
+type MessageKind = "TEXT" | "IMAGE" | "VIDEO" | "AUDIO" | "CALL";
+type CallOutcome = "completed" | "missed" | "rejected" | "cancelled" | "no_answer";
+
+interface LiveChatAttachment {
+  id: string;
+  kind: string;
+  mimeType: string;
+  originalName: string;
+  sizeBytes: number;
+}
 
 interface LiveChatMessage {
   id: string;
   sender: "admin" | "viewer";
-  content: string;
+  kind: MessageKind;
+  content: string | null;
   createdAt: string;
   readAt: string | null;
+  attachment: LiveChatAttachment | null;
+  durationMs: number | null;
+  callType: "audio" | "video" | null;
+  callOutcome: CallOutcome | null;
+  callDurationMs: number | null;
 }
 
 interface PartnerStatus {
@@ -56,6 +76,35 @@ function formatDateLabel(iso: string) {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function formatDuration(ms: number) {
+  const totalSeconds = Math.round(ms / 1000);
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function mediaUrl(attachmentId: string) {
+  return `/api/media/${attachmentId}`;
+}
+
+/** Human-readable line for a CALL-kind message, from the viewpoint of `role`. */
+function describeCall(m: LiveChatMessage, role: "admin" | "viewer") {
+  const isVideo = m.callType === "video";
+  const iCalled = m.sender === role;
+  switch (m.callOutcome) {
+    case "completed":
+      return { text: `${isVideo ? "Video" : "Audio"} call · ${formatDuration(m.callDurationMs || 0)}`, missed: false };
+    case "no_answer":
+      return { text: iCalled ? "No answer" : `Missed ${isVideo ? "video" : "audio"} call`, missed: !iCalled };
+    case "rejected":
+      return { text: iCalled ? "Call declined" : "You declined a call", missed: !iCalled };
+    case "cancelled":
+      return { text: "Call cancelled", missed: false };
+    default:
+      return { text: `${isVideo ? "Video" : "Audio"} call`, missed: false };
+  }
+}
+
 export default function LiveChatWindow({
   role,
   partnerLabel,
@@ -73,6 +122,8 @@ export default function LiveChatWindow({
     lastSeen: null,
   });
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [voiceActive, setVoiceActive] = useState(false);
+  const [lightbox, setLightbox] = useState<{ url: string; kind: "IMAGE" | "VIDEO" } | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastTimestampRef = useRef<string | null>(null);
@@ -214,9 +265,15 @@ export default function LiveChatWindow({
     const optimistic: LiveChatMessage = {
       id: optimisticId,
       sender: role,
+      kind: "TEXT",
       content,
       createdAt: new Date().toISOString(),
       readAt: null,
+      attachment: null,
+      durationMs: null,
+      callType: null,
+      callOutcome: null,
+      callDurationMs: null,
     };
     setMessages((prev) => [...prev, optimistic]);
 
@@ -241,6 +298,13 @@ export default function LiveChatWindow({
       setSending(false);
     }
   };
+
+  // Shared handler for photo/video (AttachmentMenu) and voice notes (VoiceRecorder) —
+  // both already round-tripped to the server, so just drop the final message in.
+  const handleAttachmentSent = useCallback((message: SentAttachmentMessage) => {
+    setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message as LiveChatMessage]));
+    lastTimestampRef.current = message.createdAt;
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -305,6 +369,7 @@ export default function LiveChatWindow({
             {statusLine}
           </p>
         </div>
+        <CallModal role={role} partnerLabel={partnerLabel} />
       </div>
 
       {/* Messages */}
@@ -331,7 +396,30 @@ export default function LiveChatWindow({
               </div>
             );
           }
+
           const m = item.message as LiveChatMessage;
+
+          // Call log entries render as a centered pill, like a date separator.
+          if (m.kind === "CALL") {
+            const { text, missed } = describeCall(m, role);
+            const Icon = missed ? PhoneMissed : m.callType === "video" ? Video : Phone;
+            return (
+              <div key={item.key} className="flex justify-center py-1.5">
+                <span
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] backdrop-blur-sm ${
+                    missed
+                      ? "border-red-500/20 bg-red-950/20 text-red-300"
+                      : "border-white/[0.06] bg-white/[0.04] text-gray-400"
+                  }`}
+                >
+                  <Icon className="h-3 w-3" />
+                  {text}
+                  <span className="text-white/30">· {formatTime(m.createdAt)}</span>
+                </span>
+              </div>
+            );
+          }
+
           const mine = m.sender === role;
           return (
             <motion.div
@@ -342,24 +430,64 @@ export default function LiveChatWindow({
               className={`flex ${mine ? "justify-end" : "justify-start"} mt-1`}
             >
               <div
-                className={`max-w-[78%] rounded-2xl px-4 py-2.5 shadow-sm sm:max-w-[65%] ${
+                className={`max-w-[78%] overflow-hidden rounded-2xl shadow-sm sm:max-w-[65%] ${
+                  m.kind === "TEXT" ? "px-4 py-2.5" : "p-1.5"
+                } ${
                   mine
                     ? "rounded-br-sm bg-gradient-to-br from-rose-600 to-red-700 text-white"
                     : "rounded-bl-sm bg-gradient-to-br from-[#2a2d35] to-[#23262e] text-gray-100"
                 }`}
               >
-                <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.5]">
-                  {m.content}
-                </p>
-                <p className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${mine ? "text-white/60" : "text-white/30"}`}>
+                {m.kind === "TEXT" && (
+                  <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.5]">{m.content}</p>
+                )}
+
+                {m.kind === "IMAGE" && m.attachment && (
+                  <button
+                    onClick={() => setLightbox({ url: mediaUrl(m.attachment!.id), kind: "IMAGE" })}
+                    className="block w-full"
+                  >
+                    <img
+                      src={mediaUrl(m.attachment.id)}
+                      alt={m.attachment.originalName}
+                      className="max-h-80 w-full rounded-xl object-cover"
+                    />
+                  </button>
+                )}
+
+                {m.kind === "VIDEO" && m.attachment && (
+                  <video
+                    src={mediaUrl(m.attachment.id)}
+                    controls
+                    className="max-h-80 w-full rounded-xl"
+                    onClick={() => setLightbox({ url: mediaUrl(m.attachment!.id), kind: "VIDEO" })}
+                  />
+                )}
+
+                {m.kind === "AUDIO" && m.attachment && (
+                  <div className="flex min-w-[200px] items-center gap-2 px-2.5 py-1.5">
+                    <audio src={mediaUrl(m.attachment.id)} controls className="h-9 w-full max-w-[220px]" />
+                  </div>
+                )}
+
+                {(m.kind === "IMAGE" || m.kind === "VIDEO") && m.content && (
+                  <p className="whitespace-pre-wrap break-words px-2.5 pt-1.5 text-[15px] leading-[1.5]">
+                    {m.content}
+                  </p>
+                )}
+
+                <p
+                  className={`mt-1 flex items-center justify-end gap-1 px-2.5 pb-1 text-[10px] ${
+                    mine ? "text-white/60" : "text-white/30"
+                  } ${m.kind !== "TEXT" ? "px-2.5" : ""}`}
+                >
                   {formatTime(m.createdAt)}
-                  {mine && (
-                    m.readAt ? (
+                  {mine &&
+                    (m.readAt ? (
                       <CheckCheck className="h-3.5 w-3.5 text-sky-300" />
                     ) : (
                       <Check className="h-3.5 w-3.5 text-white/60" />
-                    )
-                  )}
+                    ))}
                 </p>
               </div>
             </motion.div>
@@ -417,34 +545,71 @@ export default function LiveChatWindow({
         </AnimatePresence>
 
         <div className="flex items-end gap-2">
-          {/* Emoji button — desktop only; phones already have an emoji keyboard */}
-          <button
-            onClick={() => setEmojiOpen((v) => !v)}
-            className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-white/10 hover:text-rose-400 sm:flex"
-            aria-label="Insert emoji"
-          >
-            <Smile className="h-5 w-5" />
-          </button>
+          {!voiceActive && (
+            <>
+              {/* Emoji button — desktop only; phones already have an emoji keyboard */}
+              <button
+                onClick={() => setEmojiOpen((v) => !v)}
+                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-white/10 hover:text-rose-400 sm:flex"
+                aria-label="Insert emoji"
+              >
+                <Smile className="h-5 w-5" />
+              </button>
 
-          <textarea
-            ref={textareaRef}
-            value={draft}
-            onChange={(e) => handleDraftChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={1}
-            placeholder="Type a message…"
-            className="max-h-32 flex-1 resize-none rounded-2xl border border-white/10 bg-gray-900/80 px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-rose-500/50"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!draft.trim() || sending}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-600 to-red-700 text-white shadow-md transition-all hover:scale-105 hover:shadow-rose-900/40 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:scale-100"
-            aria-label="Send message"
-          >
-            <Send className="h-4 w-4" />
-          </button>
+              <AttachmentMenu onSend={handleAttachmentSent} />
+
+              <textarea
+                ref={textareaRef}
+                value={draft}
+                onChange={(e) => handleDraftChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={1}
+                placeholder="Type a message…"
+                className="max-h-32 flex-1 resize-none rounded-2xl border border-white/10 bg-gray-900/80 px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-rose-500/50"
+              />
+            </>
+          )}
+
+          {!voiceActive && draft.trim() ? (
+            <button
+              onClick={handleSend}
+              disabled={sending}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-600 to-red-700 text-white shadow-md transition-all hover:scale-105 hover:shadow-rose-900/40 disabled:cursor-not-allowed disabled:opacity-30"
+              aria-label="Send message"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          ) : (
+            <VoiceRecorder onSend={handleAttachmentSent} onActiveChange={setVoiceActive} />
+          )}
         </div>
       </div>
+
+      {/* Photo / video lightbox */}
+      <AnimatePresence>
+        {lightbox && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+            onClick={() => setLightbox(null)}
+          >
+            <button
+              onClick={() => setLightbox(null)}
+              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            {lightbox.kind === "IMAGE" ? (
+              <img src={lightbox.url} className="max-h-full max-w-full rounded-lg object-contain" onClick={(e) => e.stopPropagation()} />
+            ) : (
+              <video src={lightbox.url} controls autoPlay className="max-h-full max-w-full rounded-lg" onClick={(e) => e.stopPropagation()} />
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

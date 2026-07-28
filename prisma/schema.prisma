@@ -319,14 +319,26 @@ model MediaAsset {
   bookPdfs       Book[]           @relation("BookPdf")
   bookCovers     Book[]           @relation("BookCover")
   stickers       Sticker[]
+  liveChatAttachments LiveChatMessage[] @relation("LiveChatAttachmentAsset")
 }
 
 model LiveChatMessage {
   id        String   @id @default(cuid())
   sender    String   // "admin" | "viewer"
-  content   String
+  kind      String   @default("TEXT") // "TEXT" | "IMAGE" | "VIDEO" | "AUDIO" | "CALL"
+  content   String?  // text body for TEXT, optional caption for IMAGE/VIDEO
   createdAt DateTime @default(now())
   readAt    DateTime?
+
+  // Photo / video / voice-note attachment (kind = IMAGE | VIDEO | AUDIO)
+  attachmentId String?
+  attachment   MediaAsset? @relation("LiveChatAttachmentAsset", fields: [attachmentId], references: [id], onDelete: SetNull)
+  durationMs   Int?        // voice note / video length in ms
+
+  // Call log entry (kind = CALL)
+  callType       String?   // "audio" | "video"
+  callOutcome    String?   // "completed" | "missed" | "rejected" | "cancelled" | "no_answer"
+  callDurationMs Int?
 
   @@index([createdAt])
 }

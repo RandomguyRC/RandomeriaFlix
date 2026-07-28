@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     where: after ? { createdAt: { gt: new Date(after) } } : undefined,
     orderBy: { createdAt: "asc" },
     take: after ? undefined : 100,
+    include: { attachment: true },
     ...(after
       ? {}
       : {
@@ -59,7 +60,9 @@ export async function GET(request: NextRequest) {
   });
 }
 
-// POST /api/live-chat  { content: string }
+// POST /api/live-chat
+// Text message:  { content: string }
+// Media message: { kind: "IMAGE" | "VIDEO" | "AUDIO", attachmentId: string, content?: string, durationMs?: number }
 export async function POST(request: NextRequest) {
   const session = await readSession();
   if (!session) {
@@ -67,26 +70,64 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => null);
-  const content = typeof body?.content === "string" ? body.content.trim() : "";
+  const kind =
+    body?.kind === "IMAGE" || body?.kind === "VIDEO" || body?.kind === "AUDIO" ? body.kind : "TEXT";
 
-  if (!content) {
-    return NextResponse.json({ error: "content required" }, { status: 400 });
+  if (kind === "TEXT") {
+    const content = typeof body?.content === "string" ? body.content.trim() : "";
+
+    if (!content) {
+      return NextResponse.json({ error: "content required" }, { status: 400 });
+    }
+    if (content.length > 4000) {
+      return NextResponse.json({ error: "message too long" }, { status: 400 });
+    }
+
+    const message = await prisma.liveChatMessage.create({
+      data: {
+        sender: session.role,
+        kind: "TEXT",
+        content,
+      },
+      include: { attachment: true },
+    });
+
+    notifyNewMessage(session.role as "admin" | "viewer", content).catch(() => {});
+
+    return NextResponse.json({ message });
   }
-  if (content.length > 4000) {
-    return NextResponse.json({ error: "message too long" }, { status: 400 });
+
+  // Media message — photo, video, or voice note. The file itself was already
+  // uploaded via /api/live-chat/media; this just attaches the resulting
+  // MediaAsset id to a new chat message.
+  const attachmentId = typeof body?.attachmentId === "string" ? body.attachmentId : null;
+  if (!attachmentId) {
+    return NextResponse.json({ error: "attachmentId required" }, { status: 400 });
   }
+
+  const asset = await prisma.mediaAsset.findUnique({ where: { id: attachmentId } });
+  if (!asset) {
+    return NextResponse.json({ error: "attachment not found" }, { status: 404 });
+  }
+
+  const caption = typeof body?.content === "string" ? body.content.trim().slice(0, 4000) : "";
+  const durationMs = Number.isFinite(body?.durationMs) ? Math.max(0, Math.round(body.durationMs)) : null;
 
   const message = await prisma.liveChatMessage.create({
     data: {
-      sender: session.role, // "admin" | "viewer"
-      content,
+      sender: session.role,
+      kind,
+      content: caption || null,
+      attachmentId,
+      durationMs,
     },
+    include: { attachment: true },
   });
 
-  // Fire-and-forget: notify the OTHER party via Telegram/email if they have
-  // it configured + enabled. Never awaited so a slow/failed notification
-  // can't delay or break sending the chat message itself.
-  notifyNewMessage(session.role as "admin" | "viewer", content).catch(() => {});
+  const kindLabel = kind === "IMAGE" ? "📷 Photo" : kind === "VIDEO" ? "🎥 Video" : "🎤 Voice note";
+  notifyNewMessage(session.role as "admin" | "viewer", caption ? `${kindLabel}: ${caption}` : kindLabel).catch(
+    () => {}
+  );
 
   return NextResponse.json({ message });
 }

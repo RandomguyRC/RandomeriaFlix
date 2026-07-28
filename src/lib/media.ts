@@ -18,6 +18,7 @@ const ALLOWED_MIME_TYPES: Record<string, string> = {
   "audio/wav": "AUDIO",
   "audio/ogg": "AUDIO",
   "audio/mp4": "AUDIO",
+  "audio/webm": "AUDIO", // what MediaRecorder produces for voice notes in Chrome/Firefox
   "application/pdf": "PDF",
 };
 
