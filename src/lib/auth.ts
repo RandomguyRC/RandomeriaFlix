@@ -4,6 +4,8 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { prisma } from "@/lib/db";
+import { getSessionMetadata } from "@/lib/session-tracking";
 
 export const COOKIE_NAME = "session";
 
@@ -11,6 +13,7 @@ export interface SessionPayload {
   userId: string;
   role: "viewer" | "admin";
   expires: Date;
+  sessionId?: string;
 }
 
 function getPasswordHashes() {
@@ -19,7 +22,7 @@ function getPasswordHashes() {
 }
 
 export async function encrypt(payload: SessionPayload) {
-  return new SignJWT(payload)
+  return new SignJWT(payload as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: "HS256" })
     .setJti(nanoid())
     .setIssuedAt()
@@ -38,7 +41,7 @@ export async function decrypt(
         algorithms: ["HS256"],
       }
     );
-    return payload as SessionPayload;
+    return payload as unknown as SessionPayload;
   } catch {
     return null;
   }
@@ -58,9 +61,29 @@ export async function verifyPassword(
   return null;
 }
 
-export async function createSession(role: "viewer" | "admin") {
+export async function createSession(
+  role: "viewer" | "admin",
+  request?: Request,
+  initialPath = "/"
+) {
   const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
-  const session = await encrypt({ userId: nanoid(), role, expires });
+  const sessionId = nanoid();
+  const session = await encrypt({ userId: nanoid(), role, expires, sessionId });
+
+  if (request) {
+    try {
+      const metadata = await getSessionMetadata(request, initialPath);
+      await prisma.appSession.create({
+        data: {
+          id: sessionId,
+          role,
+          ...metadata,
+        },
+      });
+    } catch (error) {
+      console.warn("Session tracking row could not be created:", error);
+    }
+  }
 
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, session, {
@@ -78,7 +101,21 @@ export async function readSession(): Promise<SessionPayload | null> {
   return decrypt(session);
 }
 
+export async function endSession(sessionId?: string) {
+  if (!sessionId) return;
+
+  await prisma.appSession
+    .update({
+      where: { id: sessionId },
+      data: { endedAt: new Date() },
+    })
+    .catch(() => null);
+}
+
 export async function deleteSession() {
+  const currentSession = await readSession();
+  await endSession(currentSession?.sessionId);
+
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
 }

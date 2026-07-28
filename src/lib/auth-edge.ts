@@ -6,6 +6,7 @@ export interface SessionPayload {
   userId: string;
   role: "viewer" | "admin";
   expires: Date;
+  sessionId?: string;
 }
 
 export async function decrypt(
@@ -19,7 +20,7 @@ export async function decrypt(
         algorithms: ["HS256"],
       }
     );
-    return payload as SessionPayload;
+    return payload as unknown as SessionPayload;
   } catch {
     return null;
   }

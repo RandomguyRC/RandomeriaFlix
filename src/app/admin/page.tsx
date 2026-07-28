@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/db";
-import { Film, Image, MessageSquare, BookOpen, Users, LayoutGrid, Map } from "lucide-react";
+import { Activity, Film, Image, MessageSquare, BookOpen, Users, LayoutGrid, Map } from "lucide-react";
 import Link from "next/link";
 
 export default async function AdminDashboard() {
+  const activeSince = new Date(Date.now() - 5 * 60 * 1000);
   const [
     profiles,
     contentItems,
@@ -11,6 +12,7 @@ export default async function AdminDashboard() {
     books,
     categories,
     mapPlaces,
+    activeSessions,
   ] = await Promise.all([
     prisma.profile.count(),
     prisma.contentItem.count(),
@@ -19,6 +21,12 @@ export default async function AdminDashboard() {
     prisma.book.count(),
     prisma.category.count(),
     prisma.mapPlace.count(),
+    prisma.appSession.count({
+      where: {
+        endedAt: null,
+        lastActiveAt: { gte: activeSince },
+      },
+    }),
   ]);
 
   const stats = [
@@ -70,6 +78,13 @@ export default async function AdminDashboard() {
       icon: BookOpen,
       href: "/admin/book",
       color: "from-pink-500 to-pink-700",
+    },
+    {
+      label: "Active Sessions",
+      count: activeSessions,
+      icon: Activity,
+      href: "/admin/sessions",
+      color: "from-emerald-500 to-teal-700",
     },
   ];
 

@@ -34,9 +34,10 @@ export async function POST(request: NextRequest) {
     }
 
     clearAttempts(ip);
-    await createSession(role);
 
     const redirectTo = role === "admin" ? "/admin" : "/intro";
+    await createSession(role, request, redirectTo);
+
 
     return NextResponse.json({ redirectTo });
   } catch (error) {

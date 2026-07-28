@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import SessionHeartbeat from "@/components/SessionHeartbeat";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,7 +17,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <SessionHeartbeat />
+      </body>
     </html>
   );
 }
