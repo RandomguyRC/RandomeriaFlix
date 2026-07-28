@@ -39,6 +39,13 @@ interface QueuedSignal {
 // How long a call rings before it's auto-marked as a missed call.
 const RING_TIMEOUT_MS = 45_000;
 
+// Safety net for a call that got stuck "active" server-side forever — e.g.
+// the client's getUserMedia() failed after accept, or a tab crashed/lost
+// network before its beforeunload hangup beacon could fire. Without this,
+// `phase` stays "active" indefinitely and every future `invite()` 409s as
+// "busy" for both users, with no way to recover except a server restart.
+const ACTIVE_STALE_MS = 4 * 60 * 60 * 1000; // 4 hours
+
 let seqCounter = 0;
 let state: CallState = {
   phase: "idle",
@@ -137,6 +144,26 @@ export function checkRingTimeout(): { callerRole: Role; callType: CallType } | n
     // doesn't hang forever with no signal telling it to give up).
     push(otherRole(state.callerRole!), "timeout");
     push(state.callerRole!, "timeout");
+    reset();
+    return info;
+  }
+  return null;
+}
+
+/** Called opportunistically from the poll route on every poll, alongside
+ * checkRingTimeout(). Recovers a call that's been "active" for an implausibly
+ * long time — almost always a client that never told us it hung up (failed
+ * getUserMedia, crashed tab, lost network before beforeunload could fire) —
+ * so the app doesn't get permanently wedged in "busy". */
+export function checkStaleActive(): { callerRole: Role; callType: CallType; durationMs: number } | null {
+  if (state.phase === "active" && state.startedAt && Date.now() - state.startedAt > ACTIVE_STALE_MS) {
+    const info = {
+      callerRole: state.callerRole!,
+      callType: state.callType!,
+      durationMs: Date.now() - state.startedAt,
+    };
+    push("admin", "ended");
+    push("viewer", "ended");
     reset();
     return info;
   }

@@ -35,6 +35,21 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Opportunistically recover a call stuck "active" forever (client never
+  // reported its hangup — failed camera grab, crash, lost connection, etc).
+  const staleActive = callSignal.checkStaleActive();
+  if (staleActive) {
+    await prisma.liveChatMessage.create({
+      data: {
+        sender: staleActive.callerRole,
+        kind: "CALL",
+        callType: staleActive.callType,
+        callOutcome: "completed",
+        callDurationMs: staleActive.durationMs,
+      },
+    });
+  }
+
   const signals = callSignal.pullSignals(role, after);
   const lastSeq = signals.length ? signals[signals.length - 1].seq : after;
 

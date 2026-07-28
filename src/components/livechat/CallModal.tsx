@@ -31,10 +31,17 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
   const [elapsed, setElapsed] = useState(0);
   const [connecting, setConnecting] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!mediaError) return;
+    const t = setTimeout(() => setMediaError(null), 6000);
+    return () => clearTimeout(t);
+  }, [mediaError]);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -42,6 +49,17 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const afterRef = useRef(0);
+  // True until the very first poll response comes back. On a fresh page
+  // load/refresh, afterRef starts at 0, so that first poll would otherwise
+  // return the ENTIRE signal history still sitting in the server's in-memory
+  // queue (old "ringing"/"accepted"/"ended" signals from long-finished calls,
+  // since that queue is only ever trimmed at 300 entries, never cleared on
+  // call end). Replaying those as if they were live is exactly what produced
+  // the "every refresh shows an incoming/outgoing call that immediately fades"
+  // loop. We fast-forward past that backlog instead, and rely on the
+  // server-state reconciliation below (which checks the *current* phase, not
+  // historical signals) to correctly show a real in-progress incoming call.
+  const initialSyncRef = useRef(true);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const callStartRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -90,6 +108,38 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
     cleanup();
     setPhase("idle");
   }, [cleanup]);
+
+  // Report a local failure (e.g. camera/mic couldn't be grabbed) to the
+  // server so it doesn't get stuck thinking the call is still ringing/active
+  // — and surface a readable message instead of just silently fading out.
+  const failCall = useCallback(
+    (message: string) => {
+      setMediaError(message);
+      fetch("/api/live-chat/call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "hangup" }),
+      }).catch(() => {});
+      endLocally();
+    },
+    [endLocally]
+  );
+
+  function describeMediaError(err: unknown, type: CallType): string {
+    const name = err instanceof Error ? err.name : "";
+    if (name === "NotReadableError" || name === "TrackStartError") {
+      return type === "video"
+        ? "Couldn't start the camera — it may be in use by another app or browser tab."
+        : "Couldn't start the microphone — it may be in use by another app or browser tab.";
+    }
+    if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+      return "Camera/microphone permission was blocked. Check your browser's site settings and try again.";
+    }
+    if (name === "NotFoundError") {
+      return type === "video" ? "No camera was found on this device." : "No microphone was found on this device.";
+    }
+    return "Couldn't access the camera/microphone.";
+  }
 
   const createPeerConnection = useCallback((type: CallType) => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
@@ -178,9 +228,9 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
       // Now we wait for the caller's "offer" signal, handled below.
     } catch (err) {
       console.error("Failed to get local media", err);
-      endLocally();
+      failCall(describeMediaError(err, callTypeRef.current));
     }
-  }, [createPeerConnection, endLocally, getLocalStream]);
+  }, [createPeerConnection, failCall, getLocalStream]);
 
   const rejectIncoming = useCallback(async () => {
     await fetch("/api/live-chat/call", {
@@ -245,7 +295,7 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
             });
           } catch (err) {
             console.error("Failed to start outgoing media", err);
-            endLocally();
+            failCall(describeMediaError(err, callTypeRef.current));
           }
           break;
         }
@@ -296,7 +346,7 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
         }
       }
     },
-    [createPeerConnection, endLocally, getLocalStream]
+    [createPeerConnection, endLocally, failCall, getLocalStream]
   );
 
   // ---- polling loop -------------------------------------------------------
@@ -310,8 +360,15 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
         if (res.ok && !cancelled) {
           const data = await res.json();
           afterRef.current = data.lastSeq ?? afterRef.current;
-          for (const sig of data.signals ?? []) {
-            await handleSignal(sig);
+          if (initialSyncRef.current) {
+            // Fast-forward past any backlog from before this mount — don't
+            // replay it. (Server-state reconciliation just below still
+            // correctly picks up a genuinely-live incoming call.)
+            initialSyncRef.current = false;
+          } else {
+            for (const sig of data.signals ?? []) {
+              await handleSignal(sig);
+            }
           }
 
           // Safety net: reconcile with the server's authoritative state in
@@ -378,6 +435,22 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
   // the cause of "no call dialog appears, but the header buttons go grey."
   const overlay = (
     <>
+      {/* Media error toast — shown even after the call overlay has already
+          closed, so a failed camera/mic grab doesn't just silently fade
+          without explanation. */}
+      <AnimatePresence>
+        {mediaError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="fixed left-1/2 top-[max(1rem,env(safe-area-inset-top))] z-[60] w-[min(90vw,26rem)] -translate-x-1/2 rounded-xl bg-gray-900 px-4 py-3 text-sm text-white shadow-2xl ring-1 ring-white/10"
+          >
+            {mediaError}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Full-screen call overlay */}
       <AnimatePresence>
         {phase !== "idle" && (
