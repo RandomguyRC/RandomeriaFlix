@@ -132,7 +132,11 @@ export function relaySignal(role: Role, kind: "offer" | "answer" | "candidate", 
 export function checkRingTimeout(): { callerRole: Role; callType: CallType } | null {
   if (state.phase === "ringing" && state.ringingAt && Date.now() - state.ringingAt > RING_TIMEOUT_MS) {
     const info = { callerRole: state.callerRole!, callType: state.callType! };
+    // Notify BOTH sides: the callee (so an incoming-call dialog they still
+    // have open clears itself) and the caller (so their "Calling…" screen
+    // doesn't hang forever with no signal telling it to give up).
     push(otherRole(state.callerRole!), "timeout");
+    push(state.callerRole!, "timeout");
     reset();
     return info;
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Phone, PhoneOff, PhoneIncoming, Video, VideoOff, Mic, MicOff } from "lucide-react";
 
@@ -29,6 +30,11 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
   const [cameraOff, setCameraOff] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [connecting, setConnecting] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -287,6 +293,23 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
           for (const sig of data.signals ?? []) {
             await handleSignal(sig);
           }
+
+          // Safety net: reconcile with the server's authoritative state in
+          // case a discrete signal was ever missed (queue trimmed, a poll
+          // dropped, etc). Never treat our own outgoing invite as an
+          // incoming call — only react to "ringing" when the other side
+          // started it.
+          const serverState = data.state;
+          if (
+            serverState?.phase === "ringing" &&
+            serverState.callerRole !== role &&
+            phaseRef.current === "idle"
+          ) {
+            setCallType(serverState.callType === "video" ? "video" : "audio");
+            setPhase("incoming");
+          } else if (serverState?.phase === "idle" && phaseRef.current !== "idle") {
+            endLocally();
+          }
         }
       } catch {
         // ignore — next poll retries
@@ -302,7 +325,7 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
       cancelled = true;
       if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
     };
-  }, [handleSignal]);
+  }, [handleSignal, role, endLocally]);
 
   // If the tab closes mid-call, tell the server so the other side isn't left hanging.
   useEffect(() => {
@@ -324,28 +347,17 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
     return `${m}:${s.toString().padStart(2, "0")}`;
   }
 
-  return (
+  // The full-screen call UI (ringing / active call) is rendered via a portal
+  // straight to document.body. It MUST NOT be rendered inline here: this
+  // component is mounted inside the chat header, which has `backdrop-blur`
+  // applied to it. Any ancestor with `backdrop-filter` (or `filter`,
+  // `transform`, `perspective`, `will-change: transform`) becomes the
+  // containing block for descendant `position: fixed` elements — so instead
+  // of covering the viewport, our "fixed inset-0" overlay would get squeezed
+  // into the header's own ~60px-tall box and effectively disappear. This was
+  // the cause of "no call dialog appears, but the header buttons go grey."
+  const overlay = (
     <>
-      {/* Header call trigger buttons */}
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => startCall("audio")}
-          disabled={phase !== "idle"}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-white/10 hover:text-rose-400 disabled:opacity-30"
-          aria-label="Start audio call"
-        >
-          <Phone className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => startCall("video")}
-          disabled={phase !== "idle"}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-white/10 hover:text-rose-400 disabled:opacity-30"
-          aria-label="Start video call"
-        >
-          <Video className="h-5 w-5" />
-        </button>
-      </div>
-
       {/* Full-screen call overlay */}
       <AnimatePresence>
         {phase !== "idle" && (
@@ -444,6 +456,33 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
           </motion.div>
         )}
       </AnimatePresence>
+    </>
+  );
+
+  return (
+    <>
+      {/* Header call trigger buttons */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => startCall("audio")}
+          disabled={phase !== "idle"}
+          className="flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-white/10 hover:text-rose-400 disabled:opacity-30"
+          aria-label="Start audio call"
+        >
+          <Phone className="h-5 w-5" />
+        </button>
+        <button
+          onClick={() => startCall("video")}
+          disabled={phase !== "idle"}
+          className="flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-white/10 hover:text-rose-400 disabled:opacity-30"
+          aria-label="Start video call"
+        >
+          <Video className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Portal to document.body — see comment above `overlay` for why. */}
+      {mounted && createPortal(overlay, document.body)}
     </>
   );
 }
