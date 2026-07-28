@@ -6,6 +6,7 @@ import { Upload, X, Loader2, Crop } from "lucide-react";
 import ImagePositionPicker from "@/components/ui/ImagePositionPicker";
 import AudioTrimmer from "@/components/ui/AudioTrimmer";
 import VideoFramePicker from "@/components/ui/VideoFramePicker";
+import { uploadFileChunked, formatBytes, formatSpeed, formatEta, type UploadProgress } from "@/lib/upload-client";
 
 interface Profile {
   id: string;
@@ -46,6 +47,9 @@ export default function NewContentPage() {
   const [thumbFile, setThumbFile] = useState<UploadedFile | null>(null);
   const [musicFile, setMusicFile] = useState<UploadedFile | null>(null);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadErrorField, setUploadErrorField] = useState<string | null>(null);
 
   const [aspectMode, setAspectMode] = useState<"auto" | "portrait" | "landscape">("auto");
   const [detailZoom, setDetailZoom] = useState(1);
@@ -83,17 +87,23 @@ export default function NewContentPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingField(field);
-    const formData = new FormData();
-    formData.append("file", file);
+    setUploadError(null);
+    setUploadErrorField(null);
+    setUploadProgress(null);
     try {
-      const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
-      if (!res.ok) { alert("Upload failed"); return; }
-      const data = await res.json();
+      const data = await uploadFileChunked(file, (progress) => setUploadProgress(progress));
       const uploaded: UploadedFile = { id: data.id, originalName: data.originalName };
       if (field === "main") setMainFile(uploaded);
       else if (field === "thumb") setThumbFile(uploaded);
       else if (field === "music") setMusicFile(uploaded);
-    } catch { alert("Upload failed"); } finally { setUploadingField(null); }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+      setUploadErrorField(field);
+    } finally {
+      setUploadingField(null);
+      setUploadProgress(null);
+      e.target.value = "";
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -230,6 +240,7 @@ export default function NewContentPage() {
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-300">{type === "PHOTO" ? "Photo *" : "Video *"}</label>
           <UploadZone file={mainFile} uploading={uploadingField === "main"} accept={type === "PHOTO" ? "image/*" : type === "VIDEO" ? "video/*" : "audio/*"}
+            progress={uploadingField === "main" ? uploadProgress : null} error={uploadErrorField === "main" ? uploadError : null}
             onUpload={(e) => handleUpload(e, "main")} onRemove={() => setMainFile(null)} label={type === "AUDIO" ? "Upload audio file" : `Upload ${type.toLowerCase()}`} />
           {mainFile && type === "PHOTO" && (
             <button type="button" onClick={() => setPositionPickerOpen("detail")}
@@ -249,6 +260,7 @@ export default function NewContentPage() {
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-300">Thumbnail (optional)</label>
           <UploadZone file={thumbFile} uploading={uploadingField === "thumb"} accept="image/*"
+            progress={uploadingField === "thumb" ? uploadProgress : null} error={uploadErrorField === "thumb" ? uploadError : null}
             onUpload={(e) => handleUpload(e, "thumb")} onRemove={() => setThumbFile(null)} label="Upload thumbnail" />
           {thumbFile && (
             <button type="button" onClick={() => setPositionPickerOpen("thumb")}
@@ -263,6 +275,7 @@ export default function NewContentPage() {
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-300">Background Music (optional)</label>
             <UploadZone file={musicFile} uploading={uploadingField === "music"} accept="audio/*"
+              progress={uploadingField === "music" ? uploadProgress : null} error={uploadErrorField === "music" ? uploadError : null}
               onUpload={(e) => handleUpload(e, "music")} onRemove={() => setMusicFile(null)} label="Upload audio" />
             {musicFile && (
               <div className="mt-2 flex items-center gap-3">
@@ -366,8 +379,9 @@ export default function NewContentPage() {
   );
 }
 
-function UploadZone({ file, uploading, accept, onUpload, onRemove, label }: {
+function UploadZone({ file, uploading, accept, progress, error, onUpload, onRemove, label }: {
   file: UploadedFile | null; uploading: boolean; accept: string;
+  progress?: UploadProgress | null; error?: string | null;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void; onRemove: () => void; label: string;
 }) {
   return (
@@ -379,12 +393,36 @@ function UploadZone({ file, uploading, accept, onUpload, onRemove, label }: {
             <X className="h-4 w-4" />
           </button>
         </div>
+      ) : uploading ? (
+        <div className="rounded-lg border-2 border-dashed border-gray-700 bg-gray-800/50 px-6 py-5">
+          <div className="mb-2 flex items-center gap-2 text-sm text-gray-300">
+            <Loader2 className="h-4 w-4 animate-spin text-red-500" />
+            Uploading… {progress ? `${progress.percent}%` : ""}
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-700">
+            <div
+              className="h-full rounded-full bg-red-600 transition-all duration-300"
+              style={{ width: `${progress?.percent ?? 0}%` }}
+            />
+          </div>
+          {progress && (
+            <div className="mt-1.5 flex justify-between text-xs text-gray-500">
+              <span>{formatBytes(progress.loadedBytes)} / {formatBytes(progress.totalBytes)}</span>
+              <span>{formatSpeed(progress.speedBytesPerSec)} {progress.etaSeconds !== null && `· ${formatEta(progress.etaSeconds)}`}</span>
+            </div>
+          )}
+        </div>
       ) : (
         <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-700 bg-gray-800/50 px-6 py-8 text-sm text-gray-400 transition-colors hover:border-gray-600 hover:text-gray-300">
-          {uploading ? <Loader2 className="h-5 w-5 animate-spin text-red-500" /> : <Upload className="h-5 w-5" />}
-          {uploading ? "Uploading..." : label}
+          <Upload className="h-5 w-5" />
+          {label}
           <input type="file" accept={accept} onChange={onUpload} className="hidden" disabled={uploading} />
         </label>
+      )}
+      {error && !uploading && (
+        <div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+          {error} — try selecting the file again.
+        </div>
       )}
     </div>
   );
