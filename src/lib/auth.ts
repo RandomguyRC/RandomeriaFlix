@@ -67,23 +67,54 @@ export async function createSession(
   initialPath = "/"
 ) {
   const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
-  const sessionId = nanoid();
-  const session = await encrypt({ userId: nanoid(), role, expires, sessionId });
+  let sessionId: string;
 
   if (request) {
     try {
       const metadata = await getSessionMetadata(request, initialPath);
-      await prisma.appSession.create({
-        data: {
-          id: sessionId,
+
+      // Reuse an ended session from the same device (IP + user agent + role)
+      // instead of creating a new row every login/logout cycle
+      const existing = await prisma.appSession.findFirst({
+        where: {
           role,
-          ...metadata,
+          ipAddress: metadata.ipAddress,
+          userAgent: metadata.userAgent,
+          endedAt: { not: null },
         },
+        orderBy: { lastActiveAt: "desc" },
       });
+
+      if (existing) {
+        sessionId = existing.id;
+        await prisma.appSession.update({
+          where: { id: existing.id },
+          data: {
+            ...metadata,
+            firstSeenAt: existing.firstSeenAt,
+            lastActiveAt: new Date(),
+            endedAt: null,
+          },
+        });
+      } else {
+        sessionId = nanoid();
+        await prisma.appSession.create({
+          data: {
+            id: sessionId,
+            role,
+            ...metadata,
+          },
+        });
+      }
     } catch (error) {
       console.warn("Session tracking row could not be created:", error);
+      sessionId = nanoid();
     }
+  } else {
+    sessionId = nanoid();
   }
+
+  const session = await encrypt({ userId: nanoid(), role, expires, sessionId });
 
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, session, {
