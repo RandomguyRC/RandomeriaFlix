@@ -51,6 +51,26 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
   phaseRef.current = phase;
   callTypeRef.current = callType;
 
+  // Assigning `srcObject` programmatically and relying solely on the
+  // `autoPlay` HTML attribute is unreliable on Safari/iOS (and sometimes
+  // Chrome) for elements that aren't muted — the browser can silently
+  // refuse to start playback, leaving the element black/frozen with no
+  // error visible in the UI. This is why local preview (muted) always
+  // works but remote video (not muted) can fail to render even though the
+  // underlying connection is fine. Explicitly calling .play() — and
+  // retrying once metadata has actually loaded — fixes this reliably.
+  const attachStream = useCallback((el: HTMLVideoElement | HTMLAudioElement | null, stream: MediaStream) => {
+    if (!el) return;
+    el.srcObject = stream;
+    const tryPlay = () => {
+      el.play().catch((err) => {
+        console.warn("Media autoplay was blocked, will retry on next data:", err);
+      });
+    };
+    tryPlay();
+    el.addEventListener("loadedmetadata", tryPlay, { once: true });
+  }, []);
+
   const cleanup = useCallback(() => {
     pcRef.current?.close();
     pcRef.current = null;
@@ -86,9 +106,9 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
       const stream = e.streams[0];
       // Only attach to one element — attaching to both would double the audio.
       if (type === "video") {
-        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream;
-      } else if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = stream;
+        attachStream(remoteVideoRef.current, stream);
+      } else {
+        attachStream(remoteAudioRef.current, stream);
       }
     };
     pc.onconnectionstatechange = () => {
@@ -102,7 +122,7 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
     };
     pcRef.current = pc;
     return pc;
-  }, []);
+  }, [attachStream]);
 
   const getLocalStream = useCallback(async (type: CallType) => {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -110,11 +130,11 @@ export default function CallModal({ role, partnerLabel }: { role: Role; partnerL
       video: type === "video" ? { facingMode: "user" } : false,
     });
     localStreamRef.current = stream;
-    if (type === "video" && localVideoRef.current) {
-      localVideoRef.current.srcObject = stream;
+    if (type === "video") {
+      attachStream(localVideoRef.current, stream);
     }
     return stream;
-  }, []);
+  }, [attachStream]);
 
   // ---- actions --------------------------------------------------------
 
