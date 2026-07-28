@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { readSession } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { readSession, endSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 const ACTIVE_WINDOW_MS = 5 * 60 * 1000;
@@ -37,4 +37,25 @@ export async function GET() {
     },
     sessions: rows,
   });
+}
+
+export async function DELETE(request: NextRequest) {
+  const session = await readSession();
+  if (!session || session.role !== "admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { sessionId } = await request.json().catch(() => ({}));
+  if (!sessionId || typeof sessionId !== "string") {
+    return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
+  }
+
+  // Don't let admin end their own session
+  if (sessionId === session.sessionId) {
+    return NextResponse.json({ error: "Cannot end your own session" }, { status: 400 });
+  }
+
+  await endSession(sessionId);
+
+  return NextResponse.json({ ok: true });
 }

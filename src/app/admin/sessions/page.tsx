@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Clock, Globe2, Loader2, MapPin, MonitorSmartphone, Shield, Users } from "lucide-react";
+import { Activity, Clock, Globe2, Loader2, LogOut, MapPin, MonitorSmartphone, Shield, Users } from "lucide-react";
 
 interface AppSession {
   id: string;
@@ -76,6 +76,8 @@ export default function AdminSessionsPage() {
   const [data, setData] = useState<SessionsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [endingId, setEndingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const [now, setNow] = useState(Date.now());
 
   async function fetchSessions(showSpinner = false) {
@@ -162,6 +164,7 @@ export default function AdminSessionsPage() {
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Device</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Current area</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Last active</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800">
@@ -218,6 +221,20 @@ export default function AdminSessionsPage() {
                         {relativeTime(session.lastActiveAt)}
                       </p>
                       <p className="mt-2 text-xs text-gray-500">{formatDate(session.lastActiveAt)}</p>
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <button
+                        onClick={() => endSession(session.id, session.role)}
+                        disabled={endingId === session.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-gray-800 px-3 py-2 text-xs font-medium text-gray-300 transition-colors hover:bg-red-900/50 hover:text-red-400 disabled:opacity-50"
+                      >
+                        {endingId === session.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <LogOut className="h-3.5 w-3.5" />
+                        )}
+                        End session
+                      </button>
                     </td>
                   </tr>
                 ))}

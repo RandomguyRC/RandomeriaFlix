@@ -101,6 +101,19 @@ export async function readSession(): Promise<SessionPayload | null> {
   return decrypt(session);
 }
 
+export async function readSessionWithCheck(): Promise<SessionPayload | null> {
+  const payload = await readSession();
+  if (!payload?.sessionId) return payload;
+
+  const appSession = await prisma.appSession
+    .findUnique({ where: { id: payload.sessionId }, select: { endedAt: true } })
+    .catch(() => null);
+
+  if (appSession?.endedAt) return null;
+
+  return payload;
+}
+
 export async function endSession(sessionId?: string) {
   if (!sessionId) return;
 

@@ -18,7 +18,7 @@ export interface LocationInfo {
   longitude?: number;
 }
 
-let geoReaderPromise: Promise<Reader<CityResponse> | null> | null = null;
+let geoReader: Reader<CityResponse> | null | undefined = undefined; // undefined = not tried yet, null = tried and failed
 
 function getHeader(request: Request, name: string) {
   return request.headers.get(name) || request.headers.get(name.toLowerCase());
@@ -81,25 +81,26 @@ function getGeoDbPath() {
 }
 
 async function getGeoReader() {
-  if (!geoReaderPromise) {
-    geoReaderPromise = (async () => {
-      const dbPath = getGeoDbPath();
-      if (!dbPath || !existsSync(dbPath)) return null;
+  if (geoReader !== undefined) return geoReader;
 
-      try {
-        return await maxmind.open<CityResponse>(dbPath, {
-          cache: { max: 5000 },
-          watchForUpdates: true,
-          watchForUpdatesNonPersistent: true,
-        });
-      } catch (error) {
-        console.warn("GeoIP database could not be opened:", error);
-        return null;
-      }
-    })();
+  const dbPath = getGeoDbPath();
+  if (!dbPath || !existsSync(dbPath)) {
+    geoReader = null;
+    return null;
   }
 
-  return geoReaderPromise;
+  try {
+    geoReader = await maxmind.open<CityResponse>(dbPath, {
+      cache: { max: 5000 },
+      watchForUpdates: true,
+      watchForUpdatesNonPersistent: true,
+    });
+    return geoReader;
+  } catch (error) {
+    console.warn("GeoIP database could not be opened:", error);
+    geoReader = null;
+    return null;
+  }
 }
 
 function headerLocation(request: Request): LocationInfo {

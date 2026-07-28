@@ -31,7 +31,9 @@ export async function POST(request: NextRequest) {
   }
 
   const now = new Date();
+  const needsLocationRefresh = !existing.city && !existing.country;
   const shouldWrite =
+    needsLocationRefresh ||
     now.getTime() - existing.lastActiveAt.getTime() > WRITE_THROTTLE_MS ||
     existing.lastPath !== path ||
     existing.endedAt !== null;
