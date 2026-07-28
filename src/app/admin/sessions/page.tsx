@@ -92,6 +92,31 @@ export default function AdminSessionsPage() {
     }
   }
 
+  async function endSession(sessionId: string, role: string) {
+    if (!window.confirm(`End this ${role} session?`)) return;
+
+    setEndingId(sessionId);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/sessions", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+      const result = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(result.error || "Unable to end the session.");
+      }
+
+      await fetchSessions();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Unable to end the session.");
+    } finally {
+      setEndingId(null);
+    }
+  }
+
   useEffect(() => {
     fetchSessions();
     const refreshInterval = window.setInterval(() => fetchSessions(true), 30 * 1000);
@@ -147,6 +172,12 @@ export default function AdminSessionsPage() {
         <StatCard icon={Users} label="Active viewers" value={summary.activeViewers} color="from-blue-500 to-blue-700" />
         <StatCard icon={Clock} label="Recent sessions" value={summary.recentTotal} color="from-violet-500 to-purple-700" />
       </div>
+
+      {error && (
+        <div role="alert" className="mb-4 rounded-lg border border-red-800/70 bg-red-950/40 px-4 py-3 text-sm text-red-300">
+          {error}
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
         {sessions.length === 0 ? (
