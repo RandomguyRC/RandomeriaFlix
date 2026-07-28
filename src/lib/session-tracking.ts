@@ -117,6 +117,54 @@ function headerLocation(request: Request): LocationInfo {
   };
 }
 
+let webGeoCache = new Map<string, LocationInfo>();
+const WEB_GEO_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+const WEB_GEO_RATE_LIMIT = 40; // stay under ip-api.com's 45/min free limit
+let webGeoCount = 0;
+let webGeoResetAt = Date.now();
+
+async function lookupWebGeoIp(ipAddress: string): Promise<LocationInfo | null> {
+  const cached = webGeoCache.get(ipAddress);
+  if (cached) return cached;
+
+  // Rate limit: reset counter every 60 s
+  const now = Date.now();
+  if (now - webGeoResetAt > 60_000) {
+    webGeoCount = 0;
+    webGeoResetAt = now;
+  }
+  if (webGeoCount >= WEB_GEO_RATE_LIMIT) return null;
+  webGeoCount++;
+
+  try {
+    const res = await fetch(`http://ip-api.com/json/${ipAddress}?fields=status,country,regionName,city,lat,lon,timezone`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.status !== "success") return null;
+
+    const info: LocationInfo = {
+      country: data.country || undefined,
+      region: data.regionName || undefined,
+      city: data.city || undefined,
+      timezone: data.timezone || undefined,
+      latitude: data.lat ?? undefined,
+      longitude: data.lon ?? undefined,
+    };
+
+    webGeoCache.set(ipAddress, info);
+    // Evict old entries if cache grows too large
+    if (webGeoCache.size > 5000) {
+      webGeoCache = new Map([...webGeoCache.entries()].slice(-2000));
+    }
+
+    return info;
+  } catch {
+    return null;
+  }
+}
+
 export async function lookupLocation(ipAddress: string, request: Request): Promise<LocationInfo> {
   const fallback = headerLocation(request);
 
@@ -124,24 +172,54 @@ export async function lookupLocation(ipAddress: string, request: Request): Promi
     return fallback;
   }
 
+  // Try local MaxMind GeoIP database first
   const reader = await getGeoReader();
-  if (!reader || !maxmind.validate(ipAddress)) return fallback;
+  if (reader && maxmind.validate(ipAddress)) {
+    try {
+      const result = reader.get(ipAddress);
+      if (result) {
+        const mmCountry = result.country?.names?.en || result.registered_country?.names?.en || fallback.country;
+        const mmRegion = result.subdivisions?.[0]?.names?.en || fallback.region;
+        const mmCity = result.city?.names?.en || fallback.city;
 
-  try {
-    const result = reader.get(ipAddress);
-    if (!result) return fallback;
+        // If MaxMind returned city + region, use it directly
+        if (mmCity && mmRegion) {
+          return {
+            country: mmCountry,
+            region: mmRegion,
+            city: mmCity,
+            timezone: result.location?.time_zone || fallback.timezone,
+            latitude: result.location?.latitude,
+            longitude: result.location?.longitude,
+          };
+        }
 
-    return {
-      country: result.country?.names?.en || result.registered_country?.names?.en || fallback.country,
-      region: result.subdivisions?.[0]?.names?.en || fallback.region,
-      city: result.city?.names?.en || fallback.city,
-      timezone: result.location?.time_zone || fallback.timezone,
-      latitude: result.location?.latitude,
-      longitude: result.location?.longitude,
-    };
-  } catch {
-    return fallback;
+        // MaxMind had partial data — use ip-api.com fallback to fill in gaps
+        const web = await lookupWebGeoIp(ipAddress);
+        return {
+          country: mmCountry || web?.country || fallback.country,
+          region: mmRegion || web?.region || fallback.region,
+          city: mmCity || web?.city || fallback.city,
+          timezone: result.location?.time_zone || web?.timezone || fallback.timezone,
+          latitude: result.location?.latitude ?? web?.latitude,
+          longitude: result.location?.longitude ?? web?.longitude,
+        };
+      }
+    } catch {
+      // fall through to web fallback
+    }
   }
+
+  // MaxMind unavailable or returned nothing — try web fallback
+  const web = await lookupWebGeoIp(ipAddress);
+  return {
+    country: web?.country || fallback.country,
+    region: web?.region || fallback.region,
+    city: web?.city || fallback.city,
+    timezone: web?.timezone || fallback.timezone,
+    latitude: web?.latitude,
+    longitude: web?.longitude,
+  };
 }
 
 export function classifyArea(pathname: string) {
