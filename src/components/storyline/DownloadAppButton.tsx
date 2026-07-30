@@ -3,11 +3,30 @@
 import { useRef, useState } from "react";
 import { Download, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
-type Phase = "idle" | "starting" | "zipping" | "downloading" | "error";
+type Phase = "idle" | "starting" | "zipping" | "finalizing" | "downloading" | "error";
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return "0 MB";
+  const mb = bytes / (1024 * 1024);
+  if (mb < 1024) return `${mb.toFixed(mb < 10 ? 1 : 0)} MB`;
+  return `${(mb / 1024).toFixed(2)} GB`;
+}
+
+function formatEta(seconds?: number): string | null {
+  if (seconds === undefined || !isFinite(seconds) || seconds < 0) return null;
+  if (seconds < 5) return "a few seconds left";
+  if (seconds < 60) return `about ${Math.round(seconds)}s left`;
+  const mins = Math.round(seconds / 60);
+  return `about ${mins} min${mins === 1 ? "" : "s"} left`;
+}
 
 export default function DownloadAppButton() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [percent, setPercent] = useState(0);
+  const [processedBytes, setProcessedBytes] = useState(0);
+  const [totalBytes, setTotalBytes] = useState(0);
+  const [speedBytesPerSec, setSpeedBytesPerSec] = useState(0);
+  const [etaSeconds, setEtaSeconds] = useState<number | undefined>(undefined);
   const [errorMsg, setErrorMsg] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -26,11 +45,15 @@ export default function DownloadAppButton() {
     setTimeout(() => {
       setPhase("idle");
       setPercent(0);
+      setProcessedBytes(0);
+      setTotalBytes(0);
+      setSpeedBytesPerSec(0);
+      setEtaSeconds(undefined);
     }, 4000);
   }
 
   async function handleClick() {
-    if (phase === "starting" || phase === "zipping" || phase === "downloading") return;
+    if (phase === "starting" || phase === "zipping" || phase === "finalizing" || phase === "downloading") return;
 
     setPhase("starting");
     setErrorMsg("");
@@ -52,8 +75,16 @@ export default function DownloadAppButton() {
       pollRef.current = setInterval(async () => {
         const s = await fetch("/api/export/status").then((r) => r.json());
         setPercent(s.percent ?? 0);
+        setProcessedBytes(s.processedBytes ?? 0);
+        setTotalBytes(s.totalBytes ?? 0);
+        setSpeedBytesPerSec(s.speedBytesPerSec ?? 0);
+        setEtaSeconds(s.etaSeconds);
 
-        if (s.state === "ready") {
+        if (s.state === "finalizing") {
+          setPhase("finalizing");
+        } else if (s.state === "zipping") {
+          setPhase("zipping");
+        } else if (s.state === "ready") {
           stopPolling();
           triggerDownload();
         } else if (s.state === "error") {
@@ -68,15 +99,29 @@ export default function DownloadAppButton() {
     }
   }
 
-  const isBusy = phase === "starting" || phase === "zipping" || phase === "downloading";
+  const isBusy = phase === "starting" || phase === "zipping" || phase === "finalizing" || phase === "downloading";
 
   // The little caption line only shows once she's actually clicked — no
   // point warning about the wait before there's anything to wait for.
+  // During zipping we show real throughput so it's obvious things are
+  // still moving even while the percentage is capped near 99%.
+  const zippingDetail = (() => {
+    if (phase !== "zipping") return null;
+    const parts: string[] = [];
+    if (speedBytesPerSec > 0) parts.push(`${formatBytes(speedBytesPerSec)}/s`);
+    if (totalBytes > 0) parts.push(`${formatBytes(processedBytes)} of ${formatBytes(totalBytes)}`);
+    const eta = formatEta(etaSeconds);
+    if (eta) parts.push(eta);
+    return parts.length ? parts.join(" · ") : null;
+  })();
+
   const caption =
     phase === "starting"
       ? "Getting things ready..."
       : phase === "zipping"
-      ? "Packaging everything, including your memories..."
+      ? zippingDetail || "Packaging everything, including your memories..."
+      : phase === "finalizing"
+      ? "Almost there — writing the final archive to disk..."
       : phase === "downloading"
       ? "Your download is starting..."
       : null;
@@ -116,6 +161,8 @@ export default function DownloadAppButton() {
             ? "Something went wrong"
             : phase === "downloading"
             ? "Starting your download..."
+            : phase === "finalizing"
+            ? "Finalizing the archive..."
             : isBusy
             ? `Packing everything up... ${percent}%`
             : "Download the whole app"}
@@ -128,10 +175,17 @@ export default function DownloadAppButton() {
 
         {isBusy && (
           <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-red-500 to-rose-400 transition-all duration-300"
-              style={{ width: `${percent}%` }}
-            />
+            {phase === "finalizing" ? (
+              // No meaningful percentage left to report here (all bytes are
+              // already processed) — an indeterminate shimmer makes it clear
+              // work is still happening instead of a bar frozen at 99%.
+              <div className="h-full w-1/3 animate-[finalizing-shimmer_1.1s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-red-500 to-rose-400" />
+            ) : (
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-red-500 to-rose-400 transition-all duration-300"
+                style={{ width: `${percent}%` }}
+              />
+            )}
           </div>
         )}
       </button>

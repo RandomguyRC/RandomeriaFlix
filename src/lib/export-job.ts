@@ -7,13 +7,23 @@ import { createWriteStream, existsSync, statSync } from "fs";
 import { mkdir, unlink, readFile } from "fs/promises";
 import { join } from "path";
 
-export type ExportState = "idle" | "zipping" | "ready" | "error";
+// "finalizing" covers the gap between "all bytes handed to archiver" and
+// the output file actually being closed on disk (writing the zip central
+// directory + OS flush). That gap is where progress used to look stuck at
+// 99% — now it gets its own state so the UI can say something honest.
+export type ExportState = "idle" | "zipping" | "finalizing" | "ready" | "error";
 
 interface ExportJobStatus {
   state: ExportState;
   processedBytes: number;
   totalBytes: number;
   percent: number;
+  // Bytes/sec, smoothed — lets the UI show real throughput instead of a
+  // percentage that can sit still for a while on big archives.
+  speedBytesPerSec: number;
+  // Rough estimate of seconds left based on current speed. Undefined
+  // when we don't have enough data yet to guess.
+  etaSeconds?: number;
   error?: string;
   fileName?: string;
   fileSizeBytes?: number;
@@ -48,21 +58,39 @@ const INCLUDE_ENTRIES: { path: string; type: "dir" | "file" }[] = [
 // Where the setup guide lives before it gets bundled into the zip.
 const SETUP_GUIDE_PATH = join(PROJECT_ROOT, "bundled-readme", "START-HERE.md");
 
-let job: ExportJobStatus = { state: "idle", processedBytes: 0, totalBytes: 0, percent: 0 };
+let job: ExportJobStatus = { state: "idle", processedBytes: 0, totalBytes: 0, percent: 0, speedBytesPerSec: 0 };
 let currentFilePath: string | null = null;
 let readyTimeout: NodeJS.Timeout | null = null;
 
-export function getExportStatus(): ExportJobStatus {
-  return job;
-}
+// Speed tracking — a small rolling window of (timestamp, processedBytes)
+// samples so we can report a smoothed bytes/sec instead of a single noisy
+// instantaneous reading between two 'progress' events.
+let speedSamples: { ts: number; bytes: number }[] = [];
+const SPEED_WINDOW_MS = 4000;
 
-export function getExportFilePath(): string | null {
-  return currentFilePath;
+function recordSpeedSample(processedBytes: number): { speedBytesPerSec: number; etaSeconds?: number } {
+  const now = Date.now();
+  speedSamples.push({ ts: now, bytes: processedBytes });
+  speedSamples = speedSamples.filter((s) => now - s.ts <= SPEED_WINDOW_MS);
+
+  if (speedSamples.length < 2) {
+    return { speedBytesPerSec: 0 };
+  }
+
+  const oldest = speedSamples[0];
+  const elapsedSec = (now - oldest.ts) / 1000;
+  if (elapsedSec <= 0) return { speedBytesPerSec: 0 };
+
+  const speedBytesPerSec = (processedBytes - oldest.bytes) / elapsedSec;
+  const remaining = Math.max(0, job.totalBytes - processedBytes);
+  const etaSeconds = speedBytesPerSec > 0 ? remaining / speedBytesPerSec : undefined;
+  return { speedBytesPerSec, etaSeconds };
 }
 
 function resetToIdle() {
-  job = { state: "idle", processedBytes: 0, totalBytes: 0, percent: 0 };
+  job = { state: "idle", processedBytes: 0, totalBytes: 0, percent: 0, speedBytesPerSec: 0 };
   currentFilePath = null;
+  speedSamples = [];
   if (readyTimeout) {
     clearTimeout(readyTimeout);
     readyTimeout = null;
@@ -103,11 +131,11 @@ async function checkFreeSpace(): Promise<{ ok: boolean; message?: string }> {
 }
 
 export async function startExport(): Promise<void> {
-  if (job.state === "zipping") return; // already running, no-op
+  if (job.state === "zipping" || job.state === "finalizing") return; // already running, no-op
 
   const spaceCheck = await checkFreeSpace();
   if (!spaceCheck.ok) {
-    job = { state: "error", processedBytes: 0, totalBytes: 0, percent: 0, error: spaceCheck.message };
+    job = { state: "error", processedBytes: 0, totalBytes: 0, percent: 0, speedBytesPerSec: 0, error: spaceCheck.message };
     throw new Error(spaceCheck.message);
   }
 
@@ -117,11 +145,13 @@ export async function startExport(): Promise<void> {
   const filePath = join(EXPORT_DIR, fileName);
   currentFilePath = filePath;
 
+  speedSamples = [];
   job = {
     state: "zipping",
     processedBytes: 0,
     totalBytes: 0,
     percent: 0,
+    speedBytesPerSec: 0,
     fileName,
     startedAt: Date.now(),
   };
@@ -134,6 +164,7 @@ export async function startExport(): Promise<void> {
       processedBytes: 0,
       totalBytes: 0,
       percent: 0,
+      speedBytesPerSec: 0,
       error: err?.message || "Export failed",
     };
     currentFilePath = null;
@@ -155,12 +186,20 @@ async function runZipJob(filePath: string, fileName: string) {
   archive.on("progress", (data) => {
     const processed = data.fs.processedBytes;
     const total = data.fs.totalBytes || 1;
+    const { speedBytesPerSec, etaSeconds } = recordSpeedSample(processed);
     job = {
       ...job,
       state: "zipping",
       processedBytes: processed,
       totalBytes: total,
+      // Capped below 100 here on purpose: reaching 100% of *known* bytes
+      // doesn't mean the file is done — archiver still has to write the
+      // zip's central directory and the OS still has to flush it to disk.
+      // That tail is reported separately as "finalizing" below instead of
+      // pretending it's still "99% zipping".
       percent: Math.min(99, Math.round((processed / total) * 100)),
+      speedBytesPerSec,
+      etaSeconds,
     };
   });
 
@@ -190,6 +229,20 @@ async function runZipJob(filePath: string, fileName: string) {
   }
 
   await archive.finalize();
+
+  // All entries have been handed to archiver, but the file on disk isn't
+  // done yet — archiver still has to write the zip's central directory
+  // and the write stream still has to flush/close. On a big archive this
+  // can take a few real seconds, and it's exactly the window that used to
+  // render as "stuck at 99%". Give it its own honest state instead.
+  job = {
+    ...job,
+    state: "finalizing",
+    percent: 99,
+    speedBytesPerSec: 0,
+    etaSeconds: undefined,
+  };
+
   await done;
 
   const stats = statSync(filePath);
@@ -198,6 +251,7 @@ async function runZipJob(filePath: string, fileName: string) {
     processedBytes: stats.size,
     totalBytes: stats.size,
     percent: 100,
+    speedBytesPerSec: 0,
     fileName,
     fileSizeBytes: stats.size,
     readyAt: Date.now(),

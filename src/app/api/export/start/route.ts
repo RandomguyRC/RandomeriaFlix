@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function POST() {
   const status = getExportStatus();
 
-  if (status.state === "zipping") {
+  if (status.state === "zipping" || status.state === "finalizing") {
     return NextResponse.json({ ok: true, alreadyRunning: true, status });
   }
 
