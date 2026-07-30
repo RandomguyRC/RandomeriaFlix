@@ -647,6 +647,8 @@ function AnswerDialog({
                   );
                 })}
               </div>
+
+              <DownloadAppButton />
             </motion.div>
           )}
 
