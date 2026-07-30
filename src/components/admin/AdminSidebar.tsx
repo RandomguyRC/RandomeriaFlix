@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { Home, Image, Film, LayoutGrid, MessageSquare, MessageCircle, BookOpen, Settings, LogOut, Sparkles, Clapperboard, Smile, Menu, X, Map, Activity } from "lucide-react";
+import { Home, Image, Film, LayoutGrid, MessageSquare, MessageCircle, BookOpen, Settings, LogOut, Sparkles, Clapperboard, Smile, Menu, X, Map, Activity, ListChecks } from "lucide-react";
 
 const sidebarLinks = [
   { label: "Dashboard", href: "/admin", icon: Home },
@@ -18,6 +18,7 @@ const sidebarLinks = [
   { label: "Chat Import", href: "/admin/chat", icon: MessageSquare },
   { label: "Book/PDF", href: "/admin/book", icon: BookOpen },
   { label: "Stickers", href: "/admin/stickers", icon: Smile },
+  { label: "Bucket List", href: "/admin/wishlist", icon: ListChecks },
   { label: "Text Memories", href: "/admin/text-memories", icon: Sparkles },
   { label: "Nav Tabs", href: "/admin/nav-tabs", icon: LayoutGrid },
   { label: "Active Sessions", href: "/admin/sessions", icon: Activity },

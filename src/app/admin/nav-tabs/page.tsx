@@ -39,6 +39,7 @@ const AVAILABLE_TABS = [
   { slug: "chat", label: "Chat History", kind: "CHAT" },
   { slug: "book", label: "Book", kind: "BOOK" },
   { slug: "stickers", label: "Stickers", kind: "COLLECTION" },
+  { slug: "wishlist", label: "Bucket List", kind: "COLLECTION" },
 ];
 
 function SortableTab({
