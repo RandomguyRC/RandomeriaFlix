@@ -11,6 +11,8 @@ import {
   Flame,
   Save,
   Check,
+  ListPlus,
+  X,
 } from "lucide-react";
 
 interface WishlistItem {
@@ -36,6 +38,29 @@ function genId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+// Parses pasted lists like:
+//   Things I wanted to do
+//   1. Be happy
+//   2. Get married...
+// Numbering is treated as relative, not absolute — items are simply appended
+// in the order they appear, after whatever's already in the list. If most
+// lines are numbered/bulleted, any stray non-list line (like a header) is
+// dropped automatically.
+function parseBulkLines(raw: string): string[] {
+  const lines = raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const listPattern = /^(\d+[.)]|[-*•])\s*/;
+  const listLines = lines.filter((l) => listPattern.test(l));
+  const source = listLines.length >= Math.ceil(lines.length / 2) ? listLines : lines;
+
+  return source
+    .map((l) => l.replace(listPattern, "").trim())
+    .filter(Boolean);
+}
+
 export default function AdminWishlistPage() {
   const [data, setData] = useState<WishlistData>(EMPTY);
   const [loading, setLoading] = useState(true);
@@ -44,6 +69,9 @@ export default function AdminWishlistPage() {
 
   const [newWanted, setNewWanted] = useState("");
   const [newActual, setNewActual] = useState("");
+
+  const [showBulk, setShowBulk] = useState(false);
+  const [bulkText, setBulkText] = useState("");
 
   useEffect(() => {
     fetch("/api/admin/wishlist")
@@ -75,6 +103,17 @@ export default function AdminWishlistPage() {
     persist({ ...data, [list]: [...data[list], { id: genId(), text: trimmed }] });
     if (list === "wanted") setNewWanted("");
     else setNewActual("");
+  }
+
+  function bulkAddWanted() {
+    const items = parseBulkLines(bulkText);
+    if (items.length === 0) return;
+    persist({
+      ...data,
+      wanted: [...data.wanted, ...items.map((text) => ({ id: genId(), text }))],
+    });
+    setBulkText("");
+    setShowBulk(false);
   }
 
   function deleteItem(list: "wanted" | "actual", id: string) {
@@ -217,7 +256,43 @@ export default function AdminWishlistPage() {
           >
             <Plus className="h-4 w-4" /> Add
           </button>
+          <button
+            onClick={() => setShowBulk((s) => !s)}
+            className="flex items-center gap-1 rounded-lg border border-gray-700 px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800"
+          >
+            {showBulk ? <X className="h-4 w-4" /> : <ListPlus className="h-4 w-4" />}
+            {showBulk ? "Cancel" : "Bulk add"}
+          </button>
         </div>
+
+        {showBulk && (
+          <div className="mb-4 rounded-lg border border-amber-800/40 bg-amber-950/10 p-3">
+            <p className="mb-2 text-xs text-gray-500">
+              Paste a whole list — numbering can be anything (it's relative, not
+              absolute), and a header line like "Things I wanted to do" is fine, it
+              gets skipped automatically. Items are added to the end of the list.
+            </p>
+            <textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              rows={8}
+              placeholder={"1. Be happy\n2. Get married with the love of my life\n3. ..."}
+              className="w-full resize-y rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-white outline-none focus:border-amber-500"
+            />
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-xs text-gray-500">
+                {parseBulkLines(bulkText).length} item
+                {parseBulkLines(bulkText).length === 1 ? "" : "s"} will be added
+              </span>
+              <button
+                onClick={bulkAddWanted}
+                className="flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-500"
+              >
+                <ListPlus className="h-4 w-4" /> Add all
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
           {data.wanted.map((item, i) => (

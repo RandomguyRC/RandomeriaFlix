@@ -116,7 +116,7 @@ export default function WishlistPage() {
           transition={{ duration: 0.6 }}
           className="relative text-xs font-semibold uppercase tracking-[0.35em] text-[#e8b23a]"
         >
-          our little archive of hope
+          my little archive of hope
         </motion.p>
         <motion.h1
           initial={{ opacity: 0, y: 12 }}
@@ -136,52 +136,12 @@ export default function WishlistPage() {
           <span className="font-semibold text-white">{wantedCountUp}</span> things I
           keep dreaming about, and{" "}
           <span className="font-semibold text-[#e5093f]">{actualCountUp}</span>{" "}
-          we're actually making real.
+          I'm actually making real.
         </motion.p>
       </section>
 
-      {/* Actually happening — trophy cards */}
-      {actualCount > 0 && (
-        <section className="mx-auto max-w-4xl px-6">
-          <p
-            style={{ fontFamily: "var(--font-fraunces)" }}
-            className="mb-6 text-center text-lg italic text-white/90 sm:text-xl"
-          >
-            {data?.actualTitle}
-          </p>
-          <div className="flex flex-wrap justify-center gap-6">
-            {data?.actual.map((item, i) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 20, rotate: (i % 2 === 0 ? -1 : 1) * 3 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
-                whileHover={{ y: -4, rotate: 0 }}
-                className="relative w-full max-w-xs rounded-lg border border-[#e5093f]/40 bg-gradient-to-b from-[#2a0a10] to-[#160608] p-6 text-center shadow-[0_0_35px_-8px_rgba(229,9,63,0.55)]"
-                style={{ rotate: (i % 2 === 0 ? -2 : 2) }}
-              >
-                <motion.div
-                  animate={{ opacity: [0.6, 1, 0.6], scale: [1, 1.08, 1] }}
-                  transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-                  className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-[#e5093f]/15"
-                >
-                  <Flame className="h-4 w-4 text-[#e5093f]" />
-                </motion.div>
-                <p
-                  style={{ fontFamily: "var(--font-caveat)" }}
-                  className="text-2xl font-semibold leading-snug text-white sm:text-3xl"
-                >
-                  {item.text}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* The corkboard */}
-      <section className="mx-auto mt-16 max-w-5xl px-4 sm:px-6">
+      {/* The corkboard — everything dreamt of */}
+      <section className="mx-auto max-w-5xl px-4 sm:px-6">
         <p
           style={{ fontFamily: "var(--font-fraunces)" }}
           className="mb-6 text-center text-lg italic text-white/90 sm:text-xl"
@@ -249,6 +209,46 @@ export default function WishlistPage() {
           )}
         </div>
       </section>
+
+      {/* Actually happening — trophy cards */}
+      {actualCount > 0 && (
+        <section className="mx-auto mt-16 max-w-4xl px-6">
+          <p
+            style={{ fontFamily: "var(--font-fraunces)" }}
+            className="mb-6 text-center text-lg italic text-white/90 sm:text-xl"
+          >
+            {data?.actualTitle}
+          </p>
+          <div className="flex flex-wrap justify-center gap-6">
+            {data?.actual.map((item, i) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 20, rotate: (i % 2 === 0 ? -1 : 1) * 3 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: i * 0.1 }}
+                whileHover={{ y: -4, rotate: 0 }}
+                className="relative w-full max-w-xs rounded-lg border border-[#e5093f]/40 bg-gradient-to-b from-[#2a0a10] to-[#160608] p-6 text-center shadow-[0_0_35px_-8px_rgba(229,9,63,0.55)]"
+                style={{ rotate: (i % 2 === 0 ? -2 : 2) }}
+              >
+                <motion.div
+                  animate={{ opacity: [0.6, 1, 0.6], scale: [1, 1.08, 1] }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+                  className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-[#e5093f]/15"
+                >
+                  <Flame className="h-4 w-4 text-[#e5093f]" />
+                </motion.div>
+                <p
+                  style={{ fontFamily: "var(--font-caveat)" }}
+                  className="text-2xl font-semibold leading-snug text-white sm:text-3xl"
+                >
+                  {item.text}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
