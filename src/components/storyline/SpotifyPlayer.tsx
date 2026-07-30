@@ -170,16 +170,23 @@ export default function SpotifyPlayer({
         cursor: isDragging.current ? "grabbing" : "grab",
       }}
     >
-      <AnimatePresence mode="wait">
+      <motion.div
+        layout
+        animate={{ borderRadius: expanded ? 20 : 22 }}
+        transition={{ type: "spring", damping: 26, stiffness: 300 }}
+        className={`overflow-hidden bg-black/90 backdrop-blur-xl border border-white/10 shadow-2xl ${
+          expanded ? "w-[min(340px,92vw)]" : "w-[min(220px,80vw)]"
+        }`}
+      >
+      <AnimatePresence mode="wait" initial={false}>
         {expanded ? (
           /* ═══ EXPANDED — Dynamic Island ═══ */
           <motion.div
             key="expanded"
-            initial={{ width: 60, height: 44, borderRadius: 22 }}
-            animate={{ width: "min(340px, 92vw)", height: "auto", borderRadius: 20 }}
-            exit={{ width: 60, height: 44, borderRadius: 22 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="overflow-hidden bg-black/90 backdrop-blur-xl border border-white/10 shadow-2xl"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
           >
             {/* Progress bar at top */}
             <div className="h-0.5 w-full bg-white/10">
@@ -388,11 +395,11 @@ export default function SpotifyPlayer({
           /* ═══ COLLAPSED — Pill ═══ */
           <motion.div
             key="collapsed"
-            initial={{ width: 340, height: "auto", borderRadius: 20 }}
-            animate={{ width: "min(220px, 80vw)", height: 44, borderRadius: 22 }}
-            exit={{ width: 340, height: "auto", borderRadius: 20 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="cursor-pointer overflow-hidden bg-black/90 backdrop-blur-xl border border-white/10 shadow-2xl flex items-center px-2 gap-2"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
+            className="h-11 cursor-pointer flex items-center px-2 gap-2"
             onClick={() => { if (!didDrag.current) setExpanded(true); }}
             onPointerDown={() => { didDrag.current = false; }}
           >
@@ -436,6 +443,7 @@ export default function SpotifyPlayer({
           </motion.div>
         )}
       </AnimatePresence>
+      </motion.div>
     </div>
   );
 }

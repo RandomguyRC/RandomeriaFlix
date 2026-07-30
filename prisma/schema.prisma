@@ -89,6 +89,11 @@ model SpotifyConfig {
   expiresAt     DateTime?
   accountName   String?
   isConnected   Boolean  @default(false)
+  // JSON-encoded array of NavTab slugs (e.g. ["storyline","memories"]) where
+  // the floating Spotify player is allowed to show/connect. Pages not in this
+  // list never initialize the Web Playback SDK, so they don't register as an
+  // active Spotify device.
+  enabledPages  String   @default("[\"memories\",\"stickers\",\"chat\",\"book\",\"storyline\"]")
   updatedAt     DateTime @updatedAt
 }
 

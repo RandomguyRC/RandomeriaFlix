@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, Loader2, Check, Music, Link, Unlink, Upload, X, Send, Mail, Bell, BellOff } from "lucide-react";
+import { Save, Loader2, Check, Music, Link, Unlink, Upload, X, Send, Mail, Bell, BellOff, Eye, EyeOff } from "lucide-react";
 
 const DEFAULT_SETTINGS: Record<string, { label: string; type: string; default: string; description: string }> = {
   slideshowInterval: {
@@ -83,6 +83,12 @@ export default function SettingsPage() {
   const [chatBgY, setChatBgY] = useState(50);
   const [uploadingBg, setUploadingBg] = useState(false);
 
+  // Spotify page-visibility state
+  const [availablePages, setAvailablePages] = useState<{ slug: string; label: string }[]>([]);
+  const [enabledPages, setEnabledPages] = useState<string[]>([]);
+  const [savingPages, setSavingPages] = useState(false);
+  const [savedPages, setSavedPages] = useState(false);
+
   // Notification settings (Telegram + email, per role)
   const [notifyAdminEnabled, setNotifyAdminEnabled] = useState(false);
   const [notifyAdminTelegramChatId, setNotifyAdminTelegramChatId] = useState("");
@@ -105,6 +111,7 @@ export default function SettingsPage() {
 
     fetchSpotifyStatus();
     fetchChatBg();
+    fetchNavTabs();
   }, []);
 
   async function fetchSpotifyStatus() {
@@ -114,9 +121,41 @@ export default function SettingsPage() {
         const data = await res.json();
         setSpotifyConnected(data.connected);
         setSpotifyAccount(data.accountName || "");
+        setEnabledPages(Array.isArray(data.enabledPages) ? data.enabledPages : []);
       }
     } catch {}
     setSpotifyLoading(false);
+  }
+
+  async function fetchNavTabs() {
+    try {
+      const res = await fetch("/api/admin/nav-tabs");
+      if (res.ok) {
+        const tabs = await res.json();
+        setAvailablePages(tabs.map((t: any) => ({ slug: t.slug, label: t.label })));
+      }
+    } catch {}
+  }
+
+  function togglePage(slug: string) {
+    setEnabledPages((prev) =>
+      prev.includes(slug) ? prev.filter((p) => p !== slug) : [...prev, slug]
+    );
+  }
+
+  async function saveEnabledPages() {
+    setSavingPages(true);
+    try {
+      await fetch("/api/spotify", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabledPages }),
+      });
+      setSavedPages(true);
+      setTimeout(() => setSavedPages(false), 2000);
+    } finally {
+      setSavingPages(false);
+    }
   }
 
   async function connectSpotify() {
@@ -510,6 +549,56 @@ export default function SettingsPage() {
             Connect Spotify
           </button>
         )}
+
+        {/* Page visibility */}
+        <div className="mt-6 border-t border-gray-800 pt-5">
+          <h3 className="mb-1 text-sm font-semibold text-white">Show player on</h3>
+          <p className="mb-4 text-xs text-gray-500">
+            Only checked pages ever connect to Spotify. On every other page the player is
+            fully disconnected — not just hidden — so it won&apos;t show up as an active
+            device and won&apos;t interrupt playback on your phone.
+          </p>
+
+          {availablePages.length === 0 ? (
+            <p className="text-xs text-gray-500">No pages found yet — add tabs under Nav Tabs first.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {availablePages.map((page) => {
+                const isChecked = enabledPages.includes(page.slug);
+                return (
+                  <button
+                    key={page.slug}
+                    type="button"
+                    onClick={() => togglePage(page.slug)}
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors ${
+                      isChecked
+                        ? "border-green-500/40 bg-green-900/10 text-green-300"
+                        : "border-gray-800 bg-gray-800/50 text-gray-400 hover:text-gray-300"
+                    }`}
+                  >
+                    {isChecked ? <Eye className="h-3.5 w-3.5 flex-shrink-0" /> : <EyeOff className="h-3.5 w-3.5 flex-shrink-0" />}
+                    <span className="truncate">{page.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <button
+            onClick={saveEnabledPages}
+            disabled={savingPages}
+            className="mt-4 flex items-center gap-2 rounded-lg bg-green-700 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-green-600 disabled:opacity-50"
+          >
+            {savingPages ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : savedPages ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            {savingPages ? "Saving..." : savedPages ? "Saved!" : "Save Page Visibility"}
+          </button>
+        </div>
       </div>
 
       <div className="mt-8">

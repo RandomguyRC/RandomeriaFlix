@@ -1,17 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Music } from "lucide-react";
 import { useSpotifyPlayer } from "@/components/storyline/hooks/useSpotifyPlayer";
 import SpotifyPlayer from "@/components/storyline/SpotifyPlayer";
 
-const ALLOWED_TABS = ["memories", "stickers", "chat", "book", "storyline"];
-
 export default function SpotifyPlayerShell() {
   const pathname = usePathname();
   const [token, setToken] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
+  const [enabledPages, setEnabledPages] = useState<string[] | null>(null);
 
   useEffect(() => {
     async function checkSpotify() {
@@ -21,28 +20,33 @@ export default function SpotifyPlayerShell() {
           const data = await res.json();
           setConnected(data.connected);
           setToken(data.accessToken || null);
+          setEnabledPages(Array.isArray(data.enabledPages) ? data.enabledPages : []);
         }
       } catch {}
     }
     checkSpotify();
   }, []);
 
-  const player = useSpotifyPlayer(token);
-
-  // Pause music when navigating away from allowed tabs
+  // Determine current page key. "" (root of the profile) maps to "home",
+  // matching the NavTab slug convention used elsewhere in the app.
   const pathParts = pathname.split("/").filter(Boolean);
-  const currentTab = pathParts[pathParts.length - 1];
-  const wasVisibleRef = useRef(ALLOWED_TABS.includes(currentTab));
+  // pathParts looks like ["watch", "<profileslug>", ...rest]
+  const rest = pathParts.slice(2);
+  const currentTab = rest.length === 0 ? "home" : rest[rest.length - 1];
 
-  useEffect(() => {
-    const isVisible = ALLOWED_TABS.includes(currentTab);
-    if (wasVisibleRef.current && !isVisible) {
-      player.pause();
-    }
-    wasVisibleRef.current = isVisible;
-  }, [currentTab, player]);
+  const isPageEnabled = !!enabledPages && enabledPages.includes(currentTab);
 
-  if (!ALLOWED_TABS.includes(currentTab)) return null;
+  // Only ever hand a real token to the player hook on pages the admin has
+  // enabled. On every other page this is null, so the Web Playback SDK is
+  // never loaded/connected there at all — no lingering "active device",
+  // nothing to pause, nothing running in the background.
+  const effectiveToken = isPageEnabled ? token : null;
+  const player = useSpotifyPlayer(effectiveToken);
+
+  // Still loading the config — render nothing rather than flashing the widget.
+  if (enabledPages === null) return null;
+
+  if (!isPageEnabled) return null;
 
   if (!connected) {
     return (

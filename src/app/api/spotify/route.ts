@@ -17,8 +17,10 @@ export async function GET(request: NextRequest) {
 
   const config = await prisma.spotifyConfig.findUnique({ where: { id: "singleton" } });
 
+  const enabledPages = parseEnabledPages(config?.enabledPages);
+
   if (!config || !config.isConnected || !config.refreshToken) {
-    return NextResponse.json({ connected: false });
+    return NextResponse.json({ connected: false, enabledPages });
   }
 
   let accessToken = config.accessToken;
@@ -29,7 +31,7 @@ export async function GET(request: NextRequest) {
       const decryptedRefresh = decryptToken(config.refreshToken);
       accessToken = await refreshAccessToken(decryptedRefresh);
     } catch {
-      return NextResponse.json({ connected: false, error: "Token refresh failed" });
+      return NextResponse.json({ connected: false, error: "Token refresh failed", enabledPages });
     }
   }
 
@@ -37,7 +39,39 @@ export async function GET(request: NextRequest) {
     connected: true,
     accessToken,
     accountName: config.accountName,
+    enabledPages,
   });
+}
+
+function parseEnabledPages(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((v) => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+// PATCH — update which pages show the Spotify player (admin only)
+export async function PATCH(request: NextRequest) {
+  const session = await readSession();
+  if (!session || session.role !== "admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = await request.json();
+  if (!Array.isArray(body.enabledPages) || !body.enabledPages.every((v: unknown) => typeof v === "string")) {
+    return NextResponse.json({ error: "enabledPages must be an array of strings" }, { status: 400 });
+  }
+
+  const config = await prisma.spotifyConfig.upsert({
+    where: { id: "singleton" },
+    update: { enabledPages: JSON.stringify(body.enabledPages) },
+    create: { id: "singleton", enabledPages: JSON.stringify(body.enabledPages) },
+  });
+
+  return NextResponse.json({ enabledPages: parseEnabledPages(config.enabledPages) });
 }
 
 // POST — start OAuth
