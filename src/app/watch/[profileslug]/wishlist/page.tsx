@@ -48,6 +48,16 @@ function hash(n: number) {
   return (h & 0x7fffffff) / 0x7fffffff;
 }
 
+// Subtle fractal-noise grain, reused for the page backdrop and the wood board
+const GRAIN_SVG = `data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>`
+)}`;
+
+// Long, irregular vertical wood-grain streaks (feTurbulence stretched on one axis)
+const WOOD_GRAIN_SVG = `data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='0.008 0.09' numOctaves='4' seed='7' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(#w)'/></svg>`
+)}`;
+
 function useCountUp(target: number, durationMs = 1200) {
   const [value, setValue] = useState(0);
   const startRef = useRef<number | null>(null);
@@ -97,10 +107,31 @@ export default function WishlistPage() {
     });
   }, [data]);
 
+  // Fixed, deterministic knot placements for the wood board (purely decorative)
+  const knots = useMemo(
+    () =>
+      Array.from({ length: 5 }, (_, i) => {
+        const kx = hash(i * 7 + 11) * 90 + 5;
+        const ky = hash(i * 11 + 5) * 80 + 10;
+        const kr = hash(i * 13 + 3) * 10 + 8;
+        return { x: kx, y: ky, r: kr };
+      }),
+    []
+  );
+
   return (
     <div
-      className={`${fraunces.variable} ${caveat.variable} min-h-screen bg-[#0a0a0a] pb-24`}
+      className={`${fraunces.variable} ${caveat.variable} min-h-screen pb-24`}
+      style={{
+        background:
+          "radial-gradient(ellipse 70% 45% at 50% -8%, rgba(229,9,63,0.10), transparent 60%), radial-gradient(ellipse 55% 35% at 12% 20%, rgba(232,178,58,0.045), transparent 60%), radial-gradient(ellipse 60% 40% at 90% 60%, rgba(120,90,50,0.05), transparent 65%), linear-gradient(180deg, #15100d 0%, #100c0a 45%, #0b0908 100%)",
+      }}
     >
+      {/* Faint room grain so the backdrop doesn't read as flat black */}
+      <div
+        className="pointer-events-none fixed inset-0 opacity-[0.05] mix-blend-overlay"
+        style={{ backgroundImage: `url("${GRAIN_SVG}")`, backgroundSize: "300px 300px" }}
+      />
       {/* Hero */}
       <section className="relative overflow-hidden px-6 pb-14 pt-16 text-center sm:pt-24">
         <div
@@ -149,22 +180,60 @@ export default function WishlistPage() {
           {data?.wantedTitle}
         </p>
 
+        {/* Outer frame — sits proud of the wall with its own cast shadow */}
         <div
-          className="relative rounded-2xl border border-black/40 p-6 sm:p-10"
+          className="relative rounded-xl p-2 sm:p-3"
           style={{
-            backgroundColor: "#2b1e14",
-            backgroundImage:
-              "radial-gradient(circle at 15% 20%, rgba(0,0,0,0.25) 0, transparent 35%), radial-gradient(circle at 85% 15%, rgba(0,0,0,0.2) 0, transparent 35%), radial-gradient(circle at 50% 90%, rgba(0,0,0,0.25) 0, transparent 40%), repeating-linear-gradient(45deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 4px)",
+            background: "linear-gradient(155deg, #5a3d24 0%, #3c2716 45%, #2a1a0e 100%)",
             boxShadow:
-              "inset 0 0 70px rgba(0,0,0,0.65), inset 0 0 2px rgba(255,255,255,0.05)",
+              "0 22px 45px -18px rgba(0,0,0,0.75), 0 2px 0 rgba(255,255,255,0.06) inset, 0 -3px 6px rgba(0,0,0,0.5) inset",
           }}
         >
-          {wantedCount === 0 ? (
-            <p className="py-12 text-center text-sm text-white/40">
-              The board is empty — plenty of room for new dreams.
-            </p>
-          ) : (
-            <div className="flex flex-wrap justify-center gap-x-3 gap-y-6">
+          <div
+            className="relative overflow-hidden rounded-md p-6 sm:p-10"
+            style={{
+              backgroundColor: "#4a3320",
+              backgroundImage: [
+                // warm top-lit gradient so the board reads as lit from above, not flat
+                "linear-gradient(180deg, rgba(255,214,150,0.10) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0.12) 75%, rgba(0,0,0,0.35) 100%)",
+                // vertical plank seams
+                "repeating-linear-gradient(90deg, rgba(0,0,0,0.32) 0px, rgba(0,0,0,0.32) 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 3px, transparent 3px, transparent 152px)",
+                // organic vertical wood-grain streaks
+                `url("${WOOD_GRAIN_SVG}")`,
+                // fine surface grain
+                `url("${GRAIN_SVG}")`,
+                // soft corner vignette
+                "radial-gradient(ellipse 90% 70% at 50% 50%, transparent 55%, rgba(0,0,0,0.45) 100%)",
+              ].join(", "),
+              backgroundSize: "auto, auto, 400px 400px, 300px 300px, auto",
+              backgroundBlendMode: "normal, multiply, overlay, overlay, normal",
+              boxShadow:
+                "inset 0 0 90px rgba(0,0,0,0.6), inset 0 2px 3px rgba(0,0,0,0.5)",
+            }}
+          >
+            {/* Knots — a few irregular dark rings scattered across the boards */}
+            {knots.map((k, i) => (
+              <span
+                key={i}
+                className="pointer-events-none absolute rounded-full opacity-70"
+                style={{
+                  left: `${k.x}%`,
+                  top: `${k.y}%`,
+                  width: k.r,
+                  height: k.r * 1.4,
+                  background:
+                    "radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 55%, transparent 75%)",
+                  transform: "translate(-50%, -50%)",
+                }}
+              />
+            ))}
+
+            {wantedCount === 0 ? (
+              <p className="relative py-12 text-center text-sm text-white/50">
+                The board is empty — plenty of room for new dreams.
+              </p>
+            ) : (
+              <div className="relative flex flex-wrap justify-center gap-x-3 gap-y-6">
               {notes.map((note, i) => (
                 <motion.div
                   key={note.id}
@@ -205,8 +274,9 @@ export default function WishlistPage() {
                   </div>
                 </motion.div>
               ))}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
