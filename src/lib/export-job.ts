@@ -1,4 +1,5 @@
-import archiver from "archiver";
+// archiver's CJS export doesn't map cleanly to a default ESM import under Turbopack
+const archiver = require("archiver") as typeof import("archiver");
 import { createWriteStream, existsSync, statSync } from "fs";
 import { mkdir, unlink, readFile } from "fs/promises";
 import { join } from "path";
@@ -29,14 +30,16 @@ const INCLUDE_ENTRIES: { path: string; type: "dir" | "file" }[] = [
   { path: "public", type: "dir" },
   { path: "prisma", type: "dir" }, // includes schema.prisma, migrations/, and dev.db
   { path: "data/uploads", type: "dir" }, // all photos/videos/audio/stickers
+  { path: "data/geoip", type: "dir" },
+  { path: "data/passwords.json", type: "file" },
+  { path: "Logo", type: "dir" },
+  { path: "scripts", type: "dir" },
   { path: "package.json", type: "file" },
   { path: "package-lock.json", type: "file" },
   { path: "next.config.ts", type: "file" },
-  { path: "next.config.js", type: "file" },
   { path: "tsconfig.json", type: "file" },
-  { path: "tailwind.config.ts", type: "file" },
-  { path: "postcss.config.js", type: "file" },
-  { path: "components.json", type: "file" },
+  { path: "postcss.config.mjs", type: "file" },
+  { path: "eslint.config.mjs", type: "file" },
 ];
 
 // Where the setup guide lives before it gets bundled into the zip.

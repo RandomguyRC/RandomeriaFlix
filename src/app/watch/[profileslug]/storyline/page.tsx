@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Loader2, Play, Pause, Volume2, VolumeX, X, HelpCircle, AlertTriangle } from "lucide-react";
 import CelebrationOverlay, { CelebrationVariant } from "@/components/storyline/CelebrationOverlay";
 import HoursImpactPanel, { HoursEntry } from "@/components/storyline/HoursImpactPanel";
+import DownloadAppButton from "@/components/storyline/DownloadAppButton";
 
 interface StoryEvent {
   id: string;
