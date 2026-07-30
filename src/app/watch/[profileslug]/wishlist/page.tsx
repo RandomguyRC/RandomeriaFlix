@@ -167,7 +167,7 @@ export default function WishlistPage() {
           <span className="font-semibold text-white">{wantedCountUp}</span> things I
           keep dreaming about, and{" "}
           <span className="font-semibold text-[#e5093f]">{actualCountUp}</span>{" "}
-          I'm actually making real.
+          thats actually turning into my reality...
         </motion.p>
       </section>
 

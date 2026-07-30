@@ -82,6 +82,8 @@ export default function SettingsPage() {
   const [chatBg, setChatBg] = useState<string | null>(null);
   const [chatBgY, setChatBgY] = useState(50);
   const [uploadingBg, setUploadingBg] = useState(false);
+  const [chatStartDate, setChatStartDate] = useState("");
+  const [savingStartDate, setSavingStartDate] = useState(false);
 
   // Spotify page-visibility state
   const [availablePages, setAvailablePages] = useState<{ slug: string; label: string }[]>([]);
@@ -184,6 +186,7 @@ export default function SettingsPage() {
         const data = await res.json();
         if (data.chatBackground) setChatBg(`/api/media/${data.chatBackground}`);
         if (data.chatBackgroundY) setChatBgY(Number(data.chatBackgroundY));
+        if (data.chatStartDate) setChatStartDate(data.chatStartDate);
 
         setNotifyAdminEnabled(data.notifyAdminEnabled === "true");
         setNotifyAdminTelegramChatId(data.notifyAdminTelegramChatId || "");
@@ -258,6 +261,21 @@ export default function SettingsPage() {
       body: JSON.stringify({ chatBackgroundY: String(value) }),
     });
   }
+
+  async function saveChatStartDate(value: string) {
+    setChatStartDate(value);
+    setSavingStartDate(true);
+    try {
+      await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatStartDate: value }),
+      });
+    } finally {
+      setSavingStartDate(false);
+    }
+  }
+
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -319,11 +337,11 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      {/* Chat Background */}
+      {/* Chat History */}
       <div className="mt-10 rounded-xl border border-gray-800 bg-gray-900 p-6">
         <div className="mb-4 flex items-center gap-3">
           <span className="text-lg">💬</span>
-          <h2 className="text-lg font-semibold text-white">Chat Background</h2>
+          <h2 className="text-lg font-semibold text-white">Chat History</h2>
         </div>
         <p className="mb-4 text-sm text-gray-400">
           Set a custom background image for the Chat History page.
@@ -369,6 +387,38 @@ export default function SettingsPage() {
             disabled={uploadingBg}
           />
         </label>
+
+        {/* Chat History Start Date */}
+        <div className="mt-6 border-t border-gray-800 pt-5">
+          <h3 className="mb-1 text-sm font-semibold text-white">Chat History Start Date</h3>
+          <p className="mb-4 text-xs text-gray-500">
+            When someone opens Chat History, it lands here instead of at the very latest
+            message — they can still scroll up for earlier history or down toward today.
+            Leave blank to always open at the most recent message.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="date"
+              value={chatStartDate}
+              onChange={(e) => saveChatStartDate(e.target.value)}
+              className="rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white focus:border-red-500 focus:outline-none"
+            />
+            {chatStartDate && (
+              <button
+                onClick={() => saveChatStartDate("")}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-2.5 text-xs text-gray-300 hover:bg-gray-800"
+              >
+                <X className="h-3.5 w-3.5" /> Clear
+              </button>
+            )}
+            {savingStartDate && <Loader2 className="h-4 w-4 animate-spin text-gray-500" />}
+          </div>
+          {chatStartDate && (
+            <p className="mt-2 text-[11px] text-gray-500">
+              If there are no messages on or after this date, it falls back to showing the latest messages.
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Notifications Section */}

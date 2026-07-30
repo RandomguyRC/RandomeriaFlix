@@ -70,19 +70,56 @@ export async function GET(request: NextRequest) {
   const beforeSortOrderParam = searchParams.get("beforeSortOrder");
   const afterSortOrderParam = searchParams.get("afterSortOrder");
   const aroundSortOrderParam = searchParams.get("aroundSortOrder");
+  // Only the initial page-mount fetch passes this — it opts in to landing on
+  // the admin-configured "start date" instead of the most recent messages.
+  // loadOlder/loadNewer/scrollToLatest/jump-to-message never send it, so
+  // they're unaffected.
+  const useConfiguredStart = searchParams.get("useConfiguredStart") === "1";
 
   const totalCount = await prisma.chatMessage.count({
     where: { importId: chatImport.id },
   });
 
+  let aroundTarget: number | null = aroundSortOrderParam !== null ? parseInt(aroundSortOrderParam, 10) : null;
+  let startAligned = false;
+
+  if (
+    aroundTarget === null &&
+    useConfiguredStart &&
+    beforeSortOrderParam === null &&
+    afterSortOrderParam === null
+  ) {
+    const startSetting = await prisma.siteSetting.findUnique({ where: { key: "chatStartDate" } });
+    if (startSetting?.value) {
+      // Parsed as local midnight to line up with how the WhatsApp parser
+      // builds message timestamps (also local `new Date(y, m, d, h, min)`).
+      const startDate = new Date(`${startSetting.value}T00:00:00`);
+      if (!isNaN(startDate.getTime())) {
+        const firstOnOrAfter = await prisma.chatMessage.findFirst({
+          where: { importId: chatImport.id, timestamp: { gte: startDate } },
+          orderBy: { sortOrder: "asc" },
+          select: { sortOrder: true },
+        });
+        // If every message predates the configured start date, fall back to
+        // the normal "show the latest messages" behavior below.
+        if (firstOnOrAfter) {
+          aroundTarget = firstOnOrAfter.sortOrder;
+          startAligned = true;
+        }
+      }
+    }
+  }
+
   let messages: RawMessage[];
 
-  if (aroundSortOrderParam !== null) {
-    // "Jump to message" path — used by calendar date-jumps and search
-    // navigation when the target message isn't in the currently loaded
-    // window. Fetch a window CENTERED on the target sortOrder so the
-    // target lands roughly in the middle of the page once rendered.
-    const target = parseInt(aroundSortOrderParam, 10);
+  if (aroundTarget !== null) {
+    // "Jump to message" path — used by calendar date-jumps, search
+    // navigation, and (via useConfiguredStart above) the admin-configured
+    // start date, whenever the target message isn't in the currently loaded
+    // window. Fetch a window CENTERED on the target sortOrder so the target
+    // lands roughly in the middle of the page once rendered; the client
+    // decides how to align its initial scroll position from there.
+    const target = aroundTarget;
     const half = Math.floor(limit / 2);
 
     const olderMessages = await prisma.chatMessage.findMany({
@@ -137,6 +174,8 @@ export async function GET(request: NextRequest) {
     chatBackground: bgSetting?.value || null,
     chatBackgroundY: bgYSetting?.value || "50",
     totalCount,
+    startAligned,
+    startSortOrder: startAligned ? aroundTarget : null,
     hasOlder: olderCount > 0,
     hasNewer: newerCount > 0,
     olderCount,

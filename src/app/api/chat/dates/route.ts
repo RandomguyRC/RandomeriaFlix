@@ -15,6 +15,23 @@ function dateSortKey(datePart: string): number {
   return yy * 10000 + mm * 100 + dd;
 }
 
+// WhatsApp exports are inconsistent about zero-padding ("5/6/24" vs
+// "05/06/24") and about 2 vs 4 digit years, depending on the phone/export
+// locale. The calendar UI always builds its lookup keys in a canonical
+// zero-padded "DD/MM/YY" form, so if we hand back dates in whatever raw
+// form they were stored in, the calendar's "does this day have messages"
+// and "jump to this date" lookups silently miss almost every day. Normalize
+// here so every date we return matches exactly what the calendar expects,
+// regardless of how the source export formatted it.
+function normalizeDatePart(datePart: string): string {
+  const [ddRaw, mmRaw, yyRaw] = datePart.split("/");
+  const dd = parseInt(ddRaw, 10) || 0;
+  const mm = parseInt(mmRaw, 10) || 0;
+  let yy = parseInt(yyRaw, 10) || 0;
+  if (yy >= 100) yy = yy % 100; // 4-digit year -> 2-digit, matches calendar's format
+  return `${String(dd).padStart(2, "0")}/${String(mm).padStart(2, "0")}/${String(yy).padStart(2, "0")}`;
+}
+
 export async function GET(request: NextRequest) {
   const session = await readSession();
   if (!session) {
@@ -59,8 +76,9 @@ export async function GET(request: NextRequest) {
 
   for (const msg of allMessages) {
     if (!msg.dateLabel) continue;
-    const datePart = msg.dateLabel.split(" ")[0];
-    if (!datePart) continue;
+    const rawDatePart = msg.dateLabel.split(" ")[0];
+    if (!rawDatePart) continue;
+    const datePart = normalizeDatePart(rawDatePart);
     dateSet.add(datePart);
     // Messages are already ordered ascending by sortOrder, so the first
     // time we see a date is the earliest message on that date.

@@ -94,34 +94,70 @@ export default function ChatPageComponent() {
   }, []);
 
   useEffect(() => {
-    async function load() {
+    let cancelled = false;
+
+    // Messages and the calendar's date index are fetched independently
+    // rather than gated behind a single Promise.all. The dates endpoint has
+    // to scan every message in the chat to build the calendar's day index,
+    // which for a large imported history can take a while — there's no
+    // reason the message list (what people actually see first) should sit
+    // on a loading spinner waiting for that to finish.
+    async function loadMessages() {
       try {
-        const [chatRes, datesRes] = await Promise.all([
-          fetch(`/api/chat?profileSlug=${profileSlug}&limit=${PAGE_SIZE}`),
-          fetch(`/api/chat/dates?profileSlug=${profileSlug}`),
-        ]);
-        if (chatRes.ok) {
+        // useConfiguredStart=1 tells the server to land on the admin's
+        // configured "start date" (if any) instead of the most recent
+        // messages — see the admin Settings page.
+        const chatRes = await fetch(`/api/chat?profileSlug=${profileSlug}&limit=${PAGE_SIZE}&useConfiguredStart=1`);
+        if (!cancelled && chatRes.ok) {
           const data = await chatRes.json();
           const initialMessages = data.messages || [];
           setMessages(initialMessages);
           setHasOlder(Boolean(data.hasOlder));
           setHasNewer(Boolean(data.hasNewer));
           setTotalCount(data.totalCount || initialMessages.length);
-          const fii = Math.max(0, (data.totalCount || initialMessages.length) - initialMessages.length);
-          setFirstItemIndex(fii);
-          setInitialTopMostItemIndex({ index: fii + initialMessages.length - 1, align: "end" });
+
+          if (data.startAligned && data.startSortOrder != null) {
+            // Landed on the configured start date: position that message at
+            // the TOP of the view (not centered/bottom) so scrolling down
+            // continues forward from there and scrolling up reveals earlier
+            // history on demand — exactly like opening a normal chat, just
+            // starting partway through instead of at the very latest message.
+            const newFirstItemIndex = Math.max(0, data.olderCount ?? 0);
+            const targetIdx = initialMessages.findIndex((m: ChatMessageData) => m.sortOrder === data.startSortOrder);
+            setFirstItemIndex(newFirstItemIndex);
+            setInitialTopMostItemIndex({
+              index: newFirstItemIndex + (targetIdx >= 0 ? targetIdx : 0),
+              align: "start",
+            });
+          } else {
+            const fii = Math.max(0, (data.totalCount || initialMessages.length) - initialMessages.length);
+            setFirstItemIndex(fii);
+            setInitialTopMostItemIndex({ index: fii + initialMessages.length - 1, align: "end" });
+          }
+
           if (data.chatBackground) setBgImage(`/api/media/${data.chatBackground}`);
           if (data.chatBackgroundY) setBgY(Number(data.chatBackgroundY));
         }
-        if (datesRes.ok) {
+      } catch {}
+      if (!cancelled) setLoading(false);
+    }
+
+    async function loadDates() {
+      try {
+        const datesRes = await fetch(`/api/chat/dates?profileSlug=${profileSlug}`);
+        if (!cancelled && datesRes.ok) {
           const datesData = await datesRes.json();
           setAvailableDates(datesData.dates || []);
           setDateAnchors(datesData.anchors || {});
         }
       } catch {}
-      setLoading(false);
     }
-    load();
+
+    loadMessages();
+    loadDates();
+    return () => {
+      cancelled = true;
+    };
   }, [profileSlug]);
 
   const flashHighlight = useCallback((sortOrder: number, persist: boolean) => {

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion } from "motion/react";
 import ChatAttachment from "./ChatAttachment";
 import MediaLightbox from "./MediaLightbox";
 import type { ChatAttachmentData, ChatMessageData } from "./types";
@@ -57,10 +56,7 @@ export default function ChatBubble({
 
   return (
     <>
-      <motion.div
-        initial={{ opacity: 0, y: 6, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+      <div
         className={`flex ${isRandom ? "justify-end" : "justify-start"} ${isConsecutive ? "mt-1" : "mt-3"}`}
       >
         <div
@@ -94,7 +90,7 @@ export default function ChatBubble({
             {message.dateLabel ? message.dateLabel.split(" ").slice(1).join(" ") : ""}
           </p>
         </div>
-      </motion.div>
+      </div>
       {preview && <MediaLightbox attachment={preview} onClose={() => setPreview(null)} />}
     </>
   );
