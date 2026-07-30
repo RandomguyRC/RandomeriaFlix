@@ -1,22 +1,11 @@
-// archiver ships as a CommonJS `export =`, which different bundlers
-// interop differently (some give you the function directly, some wrap it
-// in `{ default: fn }`). Import it the normal ESM way and unwrap defensively
-// so this keeps working whether it's bundled with webpack, Turbopack, or run
-// directly under plain Node — this is what was causing "i is not a function"
-// in production (the raw `require()` call wasn't resolving to a callable
-// once minified/bundled).
-import archiverImport from "archiver";
+// archiver v8 dropped the old `archiver('zip', opts)` factory function in
+// favor of format-specific classes. All the instance methods we use below
+// (append/directory/file/finalize/pointer, and the progress/error/warning
+// events) are unchanged — only the constructor moved.
+import { ZipArchive } from "archiver";
 import { createWriteStream, existsSync, statSync } from "fs";
 import { mkdir, unlink, readFile } from "fs/promises";
 import { join } from "path";
-
-type ArchiverFn = typeof import("archiver");
-// Some bundlers hand us the callable function directly; others wrap it as
-// `{ default: fn }`. Check which one we actually got at runtime.
-const archiver: ArchiverFn =
-  typeof archiverImport === "function"
-    ? archiverImport
-    : ((archiverImport as unknown as { default: ArchiverFn }).default as ArchiverFn);
 
 export type ExportState = "idle" | "zipping" | "ready" | "error";
 
@@ -153,7 +142,7 @@ export async function startExport(): Promise<void> {
 
 async function runZipJob(filePath: string, fileName: string) {
   const output = createWriteStream(filePath);
-  const archive = archiver("zip", {
+  const archive = new ZipArchive({
     zlib: { level: 0 }, // store mode — media files are already compressed, this just saves CPU/time
   });
 
