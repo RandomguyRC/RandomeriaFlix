@@ -1,8 +1,22 @@
-// archiver's CJS export doesn't map cleanly to a default ESM import under Turbopack
-const archiver = require("archiver") as typeof import("archiver");
+// archiver ships as a CommonJS `export =`, which different bundlers
+// interop differently (some give you the function directly, some wrap it
+// in `{ default: fn }`). Import it the normal ESM way and unwrap defensively
+// so this keeps working whether it's bundled with webpack, Turbopack, or run
+// directly under plain Node — this is what was causing "i is not a function"
+// in production (the raw `require()` call wasn't resolving to a callable
+// once minified/bundled).
+import archiverImport from "archiver";
 import { createWriteStream, existsSync, statSync } from "fs";
 import { mkdir, unlink, readFile } from "fs/promises";
 import { join } from "path";
+
+type ArchiverFn = typeof import("archiver");
+// Some bundlers hand us the callable function directly; others wrap it as
+// `{ default: fn }`. Check which one we actually got at runtime.
+const archiver: ArchiverFn =
+  typeof archiverImport === "function"
+    ? archiverImport
+    : ((archiverImport as unknown as { default: ArchiverFn }).default as ArchiverFn);
 
 export type ExportState = "idle" | "zipping" | "ready" | "error";
 

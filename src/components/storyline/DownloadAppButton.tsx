@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Download, Loader2, CheckCircle2 } from "lucide-react";
+import { Download, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 type Phase = "idle" | "starting" | "zipping" | "downloading" | "error";
 
@@ -70,46 +70,71 @@ export default function DownloadAppButton() {
 
   const isBusy = phase === "starting" || phase === "zipping" || phase === "downloading";
 
+  // The little caption line only shows once she's actually clicked — no
+  // point warning about the wait before there's anything to wait for.
+  const caption =
+    phase === "starting"
+      ? "Getting things ready..."
+      : phase === "zipping"
+      ? "Packaging everything, including your memories..."
+      : phase === "downloading"
+      ? "Your download is starting..."
+      : null;
+
   return (
     <div className="mt-3">
       <button
         onClick={handleClick}
         disabled={isBusy}
-        className={`flex w-full items-center justify-center gap-2 rounded-xl border px-3.5 py-3 text-[13px] font-medium transition-all duration-300 ${
-          isBusy
-            ? "cursor-not-allowed border-white/10 bg-white/[0.03] text-gray-500"
-            : "border-white/10 bg-white/[0.03] text-gray-300 hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+        className={`group relative flex w-full flex-col items-center gap-1 overflow-hidden rounded-xl border px-4 py-3.5 transition-all duration-300 ${
+          phase === "error"
+            ? "border-red-500/30 bg-red-500/[0.06]"
+            : isBusy
+            ? "cursor-not-allowed border-red-400/20 bg-gradient-to-r from-red-500/10 to-rose-400/10"
+            : "border-red-400/20 bg-gradient-to-r from-red-500/10 to-rose-400/5 hover:border-red-400/40 hover:from-red-500/15 hover:to-rose-400/10"
         }`}
       >
-        {phase === "downloading" ? (
-          <>
-            <CheckCircle2 className="h-4 w-4" /> Starting your download...
-          </>
-        ) : isBusy ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" /> Packing everything up... {percent}%
-          </>
-        ) : (
-          <>
-            <Download className="h-4 w-4" /> Download the whole app
-          </>
+        <span
+          className={`flex items-center gap-2 text-[13px] font-medium transition-colors ${
+            phase === "error"
+              ? "text-red-300"
+              : isBusy
+              ? "text-gray-300"
+              : "text-gray-200 group-hover:text-white"
+          }`}
+        >
+          {phase === "error" ? (
+            <AlertCircle className="h-4 w-4 text-red-400" />
+          ) : phase === "downloading" ? (
+            <CheckCircle2 className="h-4 w-4 text-red-400" />
+          ) : isBusy ? (
+            <Loader2 className="h-4 w-4 animate-spin text-red-400" />
+          ) : (
+            <Download className="h-4 w-4 text-red-400" />
+          )}
+          {phase === "error"
+            ? "Something went wrong"
+            : phase === "downloading"
+            ? "Starting your download..."
+            : isBusy
+            ? `Packing everything up... ${percent}%`
+            : "Download the whole app"}
+        </span>
+
+        {caption && <span className="text-[11px] text-gray-500">{caption}</span>}
+        {phase === "error" && errorMsg && (
+          <span className="text-[11px] text-red-400">{errorMsg}</span>
+        )}
+
+        {isBusy && (
+          <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-red-500 to-rose-400 transition-all duration-300"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
         )}
       </button>
-
-      {isBusy && (
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-red-500 to-rose-400 transition-all duration-300"
-            style={{ width: `${percent}%` }}
-          />
-        </div>
-      )}
-
-      {phase === "error" && <p className="mt-2 text-center text-xs text-red-400">{errorMsg}</p>}
-
-      <p className="mt-1.5 text-center text-[11px] text-gray-600">
-        This can take a few minutes — it&apos;s packaging everything, including your memories.
-      </p>
     </div>
   );
 }
