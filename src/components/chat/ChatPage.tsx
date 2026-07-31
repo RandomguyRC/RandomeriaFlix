@@ -69,6 +69,13 @@ export default function ChatPageComponent() {
   const firstItemIndexRef = useRef(firstItemIndex);
   firstItemIndexRef.current = firstItemIndex;
 
+  // When jumpToSortOrder swaps in a whole new (unrelated) data window, we
+  // can't scroll to the target until that new data has actually committed
+  // and Virtuoso has the same instance re-rendered with it. This ref carries
+  // the scroll request across that render; the effect below fires it once
+  // `messages` actually reflects the swapped-in window.
+  const pendingScrollRef = useRef<{ index: number; target: number; persist: boolean } | null>(null);
+
   // Virtuoso's `followOutput` (auto-scroll-to-bottom for new messages) and
   // `initialTopMostItemIndex` (used to position a freshly-remounted list on
   // a jump target) fight each other: shortly after a remount, followOutput
@@ -180,7 +187,17 @@ export default function ChatPageComponent() {
   // The single entry point for "go to this message", used by both calendar
   // jumps and search navigation. If the message is already in the loaded
   // window it just scrolls; otherwise it fetches a fresh window centered on
-  // it (via aroundSortOrder) and remounts Virtuoso already positioned there.
+  // it (via aroundSortOrder) and swaps it into the *same* Virtuoso instance,
+  // then scrolls to the target imperatively once that data has committed.
+  //
+  // This used to remount Virtuoso (bump listWindowKey + initialTopMostItemIndex)
+  // for the "not currently loaded" case. That was the actual bug: a freshly
+  // mounted Virtuoso hasn't measured anything yet, so for a brief moment it
+  // always reports itself as "at the bottom" — which re-triggered followOutput
+  // and smooth-scrolled straight back down, regardless of how long
+  // suppressFollowOutput's timer was set to. Not remounting removes the
+  // unmeasured-mount window entirely, so there's nothing for followOutput to
+  // race against.
   const jumpToSortOrder = useCallback(async (target: number, persist = false) => {
     suppressFollowOutput();
     const idx = messagesRef.current.findIndex((m) => m.sortOrder === target);
@@ -197,28 +214,43 @@ export default function ChatPageComponent() {
         const win: ChatMessageData[] = data.messages || [];
         const newFirstItemIndex = Math.max(0, data.olderCount ?? 0);
         const winIdx = win.findIndex((m) => m.sortOrder === target);
+        const targetIndex = newFirstItemIndex + (winIdx >= 0 ? winIdx : Math.max(0, win.length - 1));
+
+        // Re-arm the suppression here (not just at the top of this function)
+        // as a defense-in-depth measure — swapping data can briefly nudge
+        // scroll position before the imperative scrollToIndex below runs.
+        suppressFollowOutput(1500);
+
+        // Queue the scroll; the effect below fires it once `messages`
+        // actually reflects this window (i.e. after React commits it),
+        // exactly like the "already loaded" branch above does immediately.
+        pendingScrollRef.current = { index: targetIndex, target, persist };
         setMessages(win);
         setFirstItemIndex(newFirstItemIndex);
         setHasOlder(Boolean(data.hasOlder));
         setHasNewer(Boolean(data.hasNewer));
         if (data.totalCount) setTotalCount(data.totalCount);
-        // This window is unrelated to whatever was previously loaded, so
-        // remount Virtuoso already positioned on the target rather than
-        // scrolling it there after the fact. Re-arm the suppression here —
-        // right before the remount, not just at the top of this function —
-        // so a slow fetch (or a heavy chat history query) can't let the
-        // earlier timer lapse before Virtuoso finishes settling into place.
-        suppressFollowOutput(2500);
-        setInitialTopMostItemIndex({
-          index: newFirstItemIndex + (winIdx >= 0 ? winIdx : Math.max(0, win.length - 1)),
-          align: "center",
-        });
-        setListWindowKey((k) => k + 1);
-        flashHighlight(target, persist);
+      } else {
+        setJumping(false);
       }
-    } catch {}
-    setJumping(false);
+    } catch {
+      setJumping(false);
+    }
   }, [profileSlug, flashHighlight, suppressFollowOutput]);
+
+  // Fires the scroll queued by jumpToSortOrder once the swapped-in window
+  // has actually committed. Virtuoso natively supports scrolling to an index
+  // outside the currently-rendered range (it's the same mechanism
+  // initialTopMostItemIndex uses at mount) — it doesn't need the item to be
+  // pre-measured, so this doesn't require a remount to land correctly.
+  useEffect(() => {
+    const pending = pendingScrollRef.current;
+    if (!pending) return;
+    pendingScrollRef.current = null;
+    virtuosoRef.current?.scrollToIndex({ index: pending.index, align: "center", behavior: "auto" });
+    flashHighlight(pending.target, pending.persist);
+    setJumping(false);
+  }, [messages, flashHighlight]);
 
   const loadOlder = useCallback(async () => {
     if (!hasOlder || loadingOlder || messages.length === 0) return;
