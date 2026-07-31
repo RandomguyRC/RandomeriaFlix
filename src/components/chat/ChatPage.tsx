@@ -80,7 +80,7 @@ export default function ChatPageComponent() {
   // new incoming messages still auto-follow normally while at the bottom.
   const suppressFollowRef = useRef(false);
   const suppressFollowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const suppressFollowOutput = useCallback((ms = 1000) => {
+  const suppressFollowOutput = useCallback((ms = 1500) => {
     suppressFollowRef.current = true;
     if (suppressFollowTimeoutRef.current) clearTimeout(suppressFollowTimeoutRef.current);
     suppressFollowTimeoutRef.current = setTimeout(() => {
@@ -122,6 +122,15 @@ export default function ChatPageComponent() {
             // continues forward from there and scrolling up reveals earlier
             // history on demand — exactly like opening a normal chat, just
             // starting partway through instead of at the very latest message.
+            //
+            // Virtuoso's very first render (before it has measured any
+            // items) can briefly report itself as "at the bottom", which
+            // would make followOutput smooth-scroll straight to the end and
+            // wipe out this initial position. Suppress follow-output across
+            // that settle window — armed here (right before the position is
+            // applied) rather than at the top of loadMessages, so the guard
+            // isn't silently eaten by fetch/network latency.
+            suppressFollowOutput(2500);
             const newFirstItemIndex = Math.max(0, data.olderCount ?? 0);
             const targetIdx = initialMessages.findIndex((m: ChatMessageData) => m.sortOrder === data.startSortOrder);
             setFirstItemIndex(newFirstItemIndex);
@@ -195,7 +204,11 @@ export default function ChatPageComponent() {
         if (data.totalCount) setTotalCount(data.totalCount);
         // This window is unrelated to whatever was previously loaded, so
         // remount Virtuoso already positioned on the target rather than
-        // scrolling it there after the fact.
+        // scrolling it there after the fact. Re-arm the suppression here —
+        // right before the remount, not just at the top of this function —
+        // so a slow fetch (or a heavy chat history query) can't let the
+        // earlier timer lapse before Virtuoso finishes settling into place.
+        suppressFollowOutput(2500);
         setInitialTopMostItemIndex({
           index: newFirstItemIndex + (winIdx >= 0 ? winIdx : Math.max(0, win.length - 1)),
           align: "center",
