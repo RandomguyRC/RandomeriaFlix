@@ -74,31 +74,22 @@ export default function ChatPageComponent() {
   // and Virtuoso has the same instance re-rendered with it. This ref carries
   // the scroll request across that render; the effect below fires it once
   // `messages` actually reflects the swapped-in window.
-  const pendingScrollRef = useRef<{ index: number; target: number; persist: boolean } | null>(null);
+  const pendingScrollRef = useRef<{ index: number; target: number; persist: boolean; align: "start" | "center" | "end" } | null>(null);
 
-  // Virtuoso's `followOutput` (auto-scroll-to-bottom for new messages) and
-  // `initialTopMostItemIndex` (used to position a freshly-remounted list on
-  // a jump target) fight each other: shortly after a remount, followOutput
-  // re-checks the list and — thinking it should stick to the end — smooth-
-  // scrolls straight back to the bottom, undoing the jump entirely. That's
-  // why every date/search/media jump appeared to "snap back to the bottom".
-  // We suppress followOutput for a short window around every deliberate
-  // jump so the requested position actually sticks; it re-arms afterward so
-  // new incoming messages still auto-follow normally while at the bottom.
-  const suppressFollowRef = useRef(false);
-  const suppressFollowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const suppressFollowOutput = useCallback((ms = 1500) => {
-    suppressFollowRef.current = true;
-    if (suppressFollowTimeoutRef.current) clearTimeout(suppressFollowTimeoutRef.current);
-    suppressFollowTimeoutRef.current = setTimeout(() => {
-      suppressFollowRef.current = false;
-    }, ms);
-  }, []);
-  useEffect(() => {
-    return () => {
-      if (suppressFollowTimeoutRef.current) clearTimeout(suppressFollowTimeoutRef.current);
-    };
-  }, []);
+  // NOTE ON followOutput: this page renders a static imported chat history,
+  // not a live feed, so Virtuoso's `followOutput` (auto-scroll-to-bottom
+  // whenever the data array grows) has no legitimate use here — "jump to
+  // latest" is already handled explicitly by the button below. It used to
+  // be left enabled with a timed "suppression window" after each jump to
+  // stop it from fighting jumps, but that only masked the bug for a couple
+  // seconds: `endReached` (which loads the next page while you scroll
+  // forward through history) fires right as Virtuoso considers itself "near
+  // the bottom" of the currently-loaded window, so once the suppression
+  // window expired, the very next page-load while scrolling would trigger
+  // followOutput and smooth-scroll straight to the true end of the chat —
+  // exactly the "scrolls fine for a bit, then just dumps me at the bottom"
+  // bug. Removing followOutput entirely fixes this: scrolling now always
+  // just reveals the next loaded page in order, wherever you scroll from.
 
   useEffect(() => {
     let cancelled = false;
@@ -130,14 +121,6 @@ export default function ChatPageComponent() {
             // history on demand — exactly like opening a normal chat, just
             // starting partway through instead of at the very latest message.
             //
-            // Virtuoso's very first render (before it has measured any
-            // items) can briefly report itself as "at the bottom", which
-            // would make followOutput smooth-scroll straight to the end and
-            // wipe out this initial position. Suppress follow-output across
-            // that settle window — armed here (right before the position is
-            // applied) rather than at the top of loadMessages, so the guard
-            // isn't silently eaten by fetch/network latency.
-            suppressFollowOutput(2500);
             const newFirstItemIndex = Math.max(0, data.olderCount ?? 0);
             const targetIdx = initialMessages.findIndex((m: ChatMessageData) => m.sortOrder === data.startSortOrder);
             setFirstItemIndex(newFirstItemIndex);
@@ -198,11 +181,10 @@ export default function ChatPageComponent() {
   // suppressFollowOutput's timer was set to. Not remounting removes the
   // unmeasured-mount window entirely, so there's nothing for followOutput to
   // race against.
-  const jumpToSortOrder = useCallback(async (target: number, persist = false) => {
-    suppressFollowOutput();
+  const jumpToSortOrder = useCallback(async (target: number, persist = false, align: "start" | "center" | "end" = "center") => {
     const idx = messagesRef.current.findIndex((m) => m.sortOrder === target);
     if (idx >= 0) {
-      virtuosoRef.current?.scrollToIndex({ index: idx + firstItemIndexRef.current, align: "center", behavior: "smooth" });
+      virtuosoRef.current?.scrollToIndex({ index: idx + firstItemIndexRef.current, align, behavior: "smooth" });
       flashHighlight(target, persist);
       return;
     }
@@ -216,15 +198,10 @@ export default function ChatPageComponent() {
         const winIdx = win.findIndex((m) => m.sortOrder === target);
         const targetIndex = newFirstItemIndex + (winIdx >= 0 ? winIdx : Math.max(0, win.length - 1));
 
-        // Re-arm the suppression here (not just at the top of this function)
-        // as a defense-in-depth measure — swapping data can briefly nudge
-        // scroll position before the imperative scrollToIndex below runs.
-        suppressFollowOutput(1500);
-
         // Queue the scroll; the effect below fires it once `messages`
         // actually reflects this window (i.e. after React commits it),
         // exactly like the "already loaded" branch above does immediately.
-        pendingScrollRef.current = { index: targetIndex, target, persist };
+        pendingScrollRef.current = { index: targetIndex, target, persist, align };
         setMessages(win);
         setFirstItemIndex(newFirstItemIndex);
         setHasOlder(Boolean(data.hasOlder));
@@ -236,7 +213,7 @@ export default function ChatPageComponent() {
     } catch {
       setJumping(false);
     }
-  }, [profileSlug, flashHighlight, suppressFollowOutput]);
+  }, [profileSlug, flashHighlight]);
 
   // Fires the scroll queued by jumpToSortOrder once the swapped-in window
   // has actually committed. Virtuoso natively supports scrolling to an index
@@ -247,7 +224,7 @@ export default function ChatPageComponent() {
     const pending = pendingScrollRef.current;
     if (!pending) return;
     pendingScrollRef.current = null;
-    virtuosoRef.current?.scrollToIndex({ index: pending.index, align: "center", behavior: "auto" });
+    virtuosoRef.current?.scrollToIndex({ index: pending.index, align: pending.align, behavior: "auto" });
     flashHighlight(pending.target, pending.persist);
     setJumping(false);
   }, [messages, flashHighlight]);
@@ -316,7 +293,11 @@ export default function ChatPageComponent() {
   function jumpToDate(dateStr: string) {
     const anchor = dateAnchors[dateStr];
     if (anchor !== undefined) {
-      jumpToSortOrder(anchor, false);
+      // "start" (not "center") — the anchor is the first message of that
+      // day, so landing at the top means scrolling down continues forward
+      // through that day and into the following ones in order, instead of
+      // showing a half-scrambled view with earlier days above the fold.
+      jumpToSortOrder(anchor, false, "start");
     }
     setShowCalendar(false);
   }
@@ -477,7 +458,6 @@ export default function ChatPageComponent() {
           firstItemIndex={firstItemIndex}
           data={messages}
           overscan={24}
-          followOutput={(isAtBottom) => (!suppressFollowRef.current && isAtBottom ? "smooth" : false)}
           startReached={loadOlder}
           endReached={loadNewer}
           atBottomStateChange={setAtBottom}

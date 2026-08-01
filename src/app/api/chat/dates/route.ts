@@ -32,6 +32,22 @@ function normalizeDatePart(datePart: string): string {
   return `${String(dd).padStart(2, "0")}/${String(mm).padStart(2, "0")}/${String(yy).padStart(2, "0")}`;
 }
 
+// The dates/anchors index requires scanning every message in the chat
+// (there's no way around that — it needs to see all of them to build a
+// full day-by-day map). For a large imported history that's real work, and
+// this endpoint is called on every single page load, even though the
+// result never changes unless the chat is re-imported. Since this app runs
+// as a long-lived PM2 process (not a serverless function that resets
+// between requests), a simple module-level cache is safe and persists
+// across requests — keyed by import id + message count, so it's still
+// correctly invalidated if a new/updated import ever changes the data.
+type DatesCacheEntry = {
+  messageCount: number;
+  dates: string[];
+  anchors: Record<string, number>;
+};
+const datesCache = new Map<string, DatesCacheEntry>();
+
 export async function GET(request: NextRequest) {
   const session = await readSession();
   if (!session) {
@@ -62,6 +78,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ dates: [], anchors: {} });
   }
 
+  // Cheap count check first — if it matches the cached entry, the index is
+  // still valid and we can skip the full scan entirely.
+  const messageCount = await prisma.chatMessage.count({ where: { importId: chatImport.id } });
+  const cached = datesCache.get(chatImport.id);
+  if (cached && cached.messageCount === messageCount) {
+    return NextResponse.json({
+      dates: cached.dates,
+      anchors: cached.anchors,
+      totalMessages: cached.messageCount,
+    });
+  }
+
   // Get date + sortOrder for ALL messages (not just the paginated window) so
   // we can build both the list of active dates and a "jump anchor" — the
   // sortOrder of the first message on that date — for each one.
@@ -86,6 +114,8 @@ export async function GET(request: NextRequest) {
   }
 
   const dates = Array.from(dateSet).sort((a, b) => dateSortKey(a) - dateSortKey(b));
+
+  datesCache.set(chatImport.id, { messageCount: allMessages.length, dates, anchors });
 
   return NextResponse.json({
     dates,
