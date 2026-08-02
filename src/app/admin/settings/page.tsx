@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Save, Loader2, Check, Music, Link, Unlink, Upload, X, Send, Mail, Bell, BellOff, Eye, EyeOff } from "lucide-react";
+import InstallAppCard from "@/components/settings/InstallAppCard";
 
 const DEFAULT_SETTINGS: Record<string, { label: string; type: string; default: string; description: string }> = {
   slideshowInterval: {
@@ -570,6 +571,11 @@ export default function SettingsPage() {
           )}
           {savingNotify ? "Saving..." : savedNotify ? "Saved!" : "Save Notification Settings"}
         </button>
+      </div>
+
+      {/* Install App / Push Notifications */}
+      <div className="mt-10">
+        <InstallAppCard />
       </div>
 
       {/* Spotify Section */}

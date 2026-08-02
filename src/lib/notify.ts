@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import nodemailer from "nodemailer";
+import { sendPushToRole } from "@/lib/push";
 
 type Role = "admin" | "viewer";
 
@@ -117,13 +118,27 @@ export async function notifyNewMessage(senderRole: Role, content: string) {
 
     const chatId = settings[`${prefix}TelegramChatId`]?.trim();
     const email = settings[`${prefix}Email`]?.trim();
-    if (!chatId && !email) return;
-
     const senderLabel = senderRole === "admin" ? "Random" : "Cherry";
     const preview = content.length > PREVIEW_LEN ? content.slice(0, PREVIEW_LEN) + "…" : content;
     const appName = process.env.APP_NAME || "RandomeriaFlix";
 
     const tasks: Promise<void>[] = [];
+
+    // Web push — independent of whether Telegram/email are configured, since
+    // it only needs a browser subscription (set up from the Settings page).
+    tasks.push(
+      sendPushToRole(recipientRole, {
+        title: `${senderLabel} messaged you`,
+        body: preview,
+        url: "/",
+        tag: "randomeriaflix-chat",
+      })
+    );
+
+    if (!chatId && !email) {
+      await Promise.allSettled(tasks);
+      return;
+    }
 
     if (chatId) {
       // When the recipient is the admin AND they've flipped on "chat mode"

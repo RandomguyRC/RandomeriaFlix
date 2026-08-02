@@ -14,6 +14,7 @@ import {
   ExternalLink,
   ArrowRight,
 } from "lucide-react";
+import InstallAppCard from "@/components/settings/InstallAppCard";
 
 function ToggleSwitch({
   checked,
@@ -166,6 +167,11 @@ export default function ViewerSettingsPage() {
             )}
             {saving ? "Saving..." : saved ? "Saved!" : "Save Settings"}
           </button>
+        </div>
+
+        {/* Install app / push notifications card */}
+        <div className="mt-6">
+          <InstallAppCard />
         </div>
 
         {/* Guide card */}
