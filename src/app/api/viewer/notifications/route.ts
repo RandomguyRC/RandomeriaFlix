@@ -30,7 +30,7 @@ export async function GET() {
     enabled: map[`${prefix}Enabled`] === "true",
     telegramChatId: map[`${prefix}TelegramChatId`] || "",
     email: map[`${prefix}Email`] || "",
-    telegramBotUsername: map.telegramBotUsername || "",
+    telegramBotUsername: map.telegramBotUsername || "randomeria_bot",
   });
 }
 

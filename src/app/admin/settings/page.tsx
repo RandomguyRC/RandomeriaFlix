@@ -195,7 +195,7 @@ export default function SettingsPage() {
         setNotifyViewerEnabled(data.notifyViewerEnabled === "true");
         setNotifyViewerTelegramChatId(data.notifyViewerTelegramChatId || "");
         setNotifyViewerEmail(data.notifyViewerEmail || "");
-        setTelegramBotUsername(data.telegramBotUsername || "");
+        setTelegramBotUsername(data.telegramBotUsername || "randomeria_bot");
       }
     } catch {}
   }
