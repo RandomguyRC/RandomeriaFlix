@@ -29,9 +29,18 @@ export default async function WatchLayout({
     serverTabs = tabs.map((t) => ({ slug: t.slug, label: t.label, isEnabled: t.isEnabled }));
   } catch {}
 
+  // Fetch the active profile server-side so the nav avatar renders with no flash
+  let profile: { name: string; theme: string | null } | null = null;
+  try {
+    profile = await prisma.profile.findUnique({
+      where: { slug: profileslug },
+      select: { name: true, theme: true },
+    });
+  } catch {}
+
   return (
     <div className="relative z-0 min-h-screen bg-[#0a0a0a]">
-      <TopNav profileSlug={profileslug} initialTabs={serverTabs} />
+      <TopNav profileSlug={profileslug} initialTabs={serverTabs} profile={profile} />
       <div className="pt-14">{children}</div>
       <SpotifyPlayerShell />
       <LiveChatNotifier

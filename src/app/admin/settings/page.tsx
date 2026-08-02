@@ -98,6 +98,7 @@ export default function SettingsPage() {
   const [notifyViewerEnabled, setNotifyViewerEnabled] = useState(false);
   const [notifyViewerTelegramChatId, setNotifyViewerTelegramChatId] = useState("");
   const [notifyViewerEmail, setNotifyViewerEmail] = useState("");
+  const [telegramBotUsername, setTelegramBotUsername] = useState("");
   const [savingNotify, setSavingNotify] = useState(false);
   const [savedNotify, setSavedNotify] = useState(false);
 
@@ -194,6 +195,7 @@ export default function SettingsPage() {
         setNotifyViewerEnabled(data.notifyViewerEnabled === "true");
         setNotifyViewerTelegramChatId(data.notifyViewerTelegramChatId || "");
         setNotifyViewerEmail(data.notifyViewerEmail || "");
+        setTelegramBotUsername(data.telegramBotUsername || "");
       }
     } catch {}
   }
@@ -211,6 +213,7 @@ export default function SettingsPage() {
           notifyViewerEnabled: String(notifyViewerEnabled),
           notifyViewerTelegramChatId,
           notifyViewerEmail,
+          telegramBotUsername,
         }),
       });
       setSavedNotify(true);
@@ -450,6 +453,22 @@ export default function SettingsPage() {
           switch it into live chat mode — after that, anything you type is sent straight to your
           viewer and their replies show up as normal Telegram messages, not notifications. Send{" "}
           <code className="rounded bg-gray-800 px-1 py-0.5 text-xs">/stop</code> to exit.
+        </div>
+
+        <div className="mb-6">
+          <label className="mb-1 block text-sm font-medium text-gray-300">Telegram Bot Username</label>
+          <p className="mb-2 text-xs text-gray-500">
+            Your bot's @username (without the @), e.g. <code className="rounded bg-gray-800 px-1 py-0.5 text-xs">randomeriaflix_bot</code>.
+            Used to build the "message the bot" link shown on the viewer's own Settings page, so
+            she can self-serve her Telegram Chat ID and email without needing this admin panel.
+          </p>
+          <input
+            type="text"
+            placeholder="your_bot_username"
+            value={telegramBotUsername}
+            onChange={(e) => setTelegramBotUsername(e.target.value.replace(/^@/, ""))}
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white focus:border-red-500 focus:outline-none"
+          />
         </div>
 
         <div className="space-y-6">
